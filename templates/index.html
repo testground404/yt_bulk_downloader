@@ -32,18 +32,18 @@
     button.icon-btn { padding: 10px; min-width: 40px; display: flex; align-items: center; justify-content: center; }
     
     /* Status Badge with Click Indicator */
-    .status-badge{ 
-      position: relative; 
-      padding: 8px 16px 8px 12px; 
-      border-radius: 999px; 
-      background: var(--surface); 
-      font-size: 13px; 
-      color: var(--text-secondary); 
-      border: 1px solid var(--border); 
-      font-weight: 500; 
-      overflow: hidden; 
-      max-width: 300px; 
-      white-space: nowrap; 
+    .status-badge{
+      position: relative;
+      padding: 8px 16px 8px 12px;
+      border-radius: 999px;
+      background: var(--surface);
+      font-size: 13px;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      font-weight: 500;
+      overflow: hidden;
+      max-width: 500px;
+      white-space: nowrap;
       text-overflow: ellipsis;
       cursor: pointer;
       transition: all 0.2s ease;
@@ -898,7 +898,26 @@
           pollInterval = 5000;
         }
         
-        elements.overallStatus.textContent = data.overall_status;
+        // Enhanced status with channel serial number
+        let statusText = data.overall_status;
+        if (data.running && data.channels) {
+            // Find the currently processing channel
+            const activeChannelIndex = data.channels.findIndex(ch =>
+                ch.status === 'Listing' || ch.status === 'Downloading'
+            );
+
+            if (activeChannelIndex !== -1) {
+                const channelNum = activeChannelIndex + 1;
+                const totalChannels = data.channels.length;
+
+                // If status doesn't already include the channel number, prepend it
+                if (!statusText.match(/^\[\d+\/\d+\]/)) {
+                    statusText = `[${channelNum}/${totalChannels}] ${statusText}`;
+                }
+            }
+        }
+
+        elements.overallStatus.textContent = statusText;
         elements.overallStatus.classList.toggle('is-running', data.running);
         elements.totalEta.textContent = formatEta(data.total_eta_seconds);
         elements.avgTimePerVideo.textContent = `${(data.average_time_per_video || 0).toFixed(1)}s`;
