@@ -570,6 +570,7 @@ def run_downloader_task():
                 app_status["overall_status"] = f"Listed: {channel['name']} ({len(channel['videos'])} videos)"
 
             logging.info(f"✅ Listed {len(channel['videos'])} videos from {channel['name']} in {elapsed_time:.2f}s")
+            logging.info(f"💾 Timestamp: {channel['last_listed']} (cached for 7 days)")
 
         except subprocess.TimeoutExpired:
             logging.error(f"Timeout listing channel {channel['name']}")
@@ -581,7 +582,7 @@ def run_downloader_task():
                 channel["status"] = "Error"
 
         calculate_metrics()
-        save_progress(force=True)  # Save synchronously after each channel listing
+        save_progress(force=True)  # Immediately save to progress.json after each channel
 
     # Phase 2: Downloading
     with status_lock:
