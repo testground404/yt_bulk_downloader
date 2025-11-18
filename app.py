@@ -158,32 +158,42 @@ def load_progress():
 
 def should_relist_channel(channel):
     """Check if a channel should be re-listed based on last listing time.
-    
+    Fixed to handle naive vs aware datetime comparison correctly.
+
     Returns True if:
     - Channel has never been listed
     - Channel was listed more than 7 days ago
     - Channel has no last_listed timestamp
-    
+
     Returns False if:
     - Channel was listed within the last 7 days
     """
     last_listed = channel.get('last_listed')
-    
+
     if not last_listed:
         return True
-    
+
     try:
-        last_listed_time = datetime.fromisoformat(last_listed.replace('Z', '+00:00'))
+        # Clean the timestamp to ensure we have a naive string (remove Z or offset)
+        # This ensures we interpret the time as "UTC time" but without the timezone object
+        # so it is compatible with datetime.utcnow()
+        clean_timestamp = last_listed.replace('Z', '').split('+')[0]
+
+        last_listed_time = datetime.fromisoformat(clean_timestamp)
+
+        # Calculate days difference
+        # datetime.utcnow() is naive UTC; last_listed_time is now naive UTC
         days_since_listing = (datetime.utcnow() - last_listed_time).total_seconds() / 86400
-        
+
         if days_since_listing < 7:
-            logging.info(f"Skipping listing for {channel['name']} - last listed {days_since_listing:.1f} days ago")
+            logging.info(f"✓ Skipping listing for {channel['name']} - last listed {days_since_listing:.1f} days ago")
             return False
         else:
-            logging.info(f"Re-listing {channel['name']} - last listed {days_since_listing:.1f} days ago")
+            logging.info(f"↻ Re-listing {channel['name']} - last listed {days_since_listing:.1f} days ago")
             return True
+
     except Exception as e:
-        logging.warning(f"Error parsing last_listed timestamp for {channel['name']}: {e}. Will re-list.")
+        logging.warning(f"⚠ Error parsing last_listed timestamp for {channel['name']} ({last_listed}): {e}. Will re-list.")
         return True
 
 def save_progress(force=False):
