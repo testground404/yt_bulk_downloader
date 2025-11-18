@@ -446,19 +446,28 @@ def run_downloader_task():
 
     # First, batch-process channels that don't need listing (instant handling)
     channels_to_list = []
-    skipped_count = 0
+    skipped_channels = []
 
     for channel in app_status["channels"]:
         if channel.get("status") == "To Be Listed" or should_relist_channel(channel):
             channels_to_list.append(channel)
         elif channel.get("status") in ["Listed", "Downloading", "Done"]:
-            skipped_count += 1
+            skipped_channels.append(channel)
 
-    if skipped_count > 0:
-        logging.info(f"Instantly skipping {skipped_count} channels - already listed recently")
+    if skipped_channels:
+        logging.info(f"📦 Loading {len(skipped_channels)} channels from cache (listed within 7 days):")
+        for ch in skipped_channels:
+            video_count = len(ch.get("videos", []))
+            last_listed = ch.get("last_listed", "Unknown")
+            logging.info(f"  ✓ {ch['name']}: {video_count} videos (cached from {last_listed})")
+
+    if channels_to_list:
+        logging.info(f"🔄 Need to list {len(channels_to_list)} channels (new or >7 days old)")
+
+    logging.info(f"📊 Listing summary: {len(skipped_channels)} cached, {len(channels_to_list)} to list")
 
     # Update metrics once after batch processing skipped channels (fast path)
-    if skipped_count > 0 and len(channels_to_list) == 0:
+    if len(skipped_channels) > 0 and len(channels_to_list) == 0:
         # All channels skipped - update metrics and move to download phase immediately
         calculate_metrics()
         threading.Thread(target=save_progress, daemon=True).start()
