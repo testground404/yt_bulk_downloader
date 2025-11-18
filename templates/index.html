@@ -929,6 +929,7 @@
 
     // Channel status tracking for console logging
     let channelStatusTracker = new Map(); // Tracks: url -> {status, lastListed, videoCount, listingStartTime}
+    let initialLoadLogged = false; // Track if we've logged the initial cache summary
 
     // Initialization log
     console.log('📺 Caption Downloader initialized');
@@ -1329,10 +1330,26 @@
 
         // Track channel status changes and log to console
         if (allChannels.length > 0) {
-            let cachedCount = 0;
-            let listingCount = 0;
-            let completedCount = 0;
+            // One-time initial load logging - show all cached channels at startup
+            if (!initialLoadLogged && channelStatusTracker.size === 0 && allChannels.length > 0) {
+                const cachedChannels = allChannels.filter(ch =>
+                    ch.status === 'Listed' && ch.last_listed && ch.videos?.length > 0
+                );
 
+                if (cachedChannels.length > 0) {
+                    console.log(`📦 Loading ${cachedChannels.length} channels from cache:`);
+                    cachedChannels.forEach(ch => {
+                        const listedDate = new Date(ch.last_listed);
+                        const daysSinceListed = (Date.now() - listedDate.getTime()) / (1000 * 60 * 60 * 24);
+                        console.log(`  ✓ ${ch.name}: ${ch.videos.length} videos (cached ${daysSinceListed.toFixed(1)} days ago)`);
+                    });
+                    console.log(`📊 Initial load complete: ${cachedChannels.length} channels loaded from cache`);
+                }
+
+                initialLoadLogged = true;
+            }
+
+            // Track ongoing status changes
             allChannels.forEach(ch => {
                 const prevState = channelStatusTracker.get(ch.url) || {};
                 const currentState = {
@@ -1341,26 +1358,16 @@
                     videoCount: ch.videos?.length || 0
                 };
 
-                // Initial load - check if channel is cached
-                if (!prevState.status && ch.status === 'Listed' && ch.last_listed) {
-                    const listedDate = new Date(ch.last_listed);
-                    const daysSinceListed = (Date.now() - listedDate.getTime()) / (1000 * 60 * 60 * 24);
-                    console.log(`📦 Loaded from cache: ${ch.name} (${currentState.videoCount} videos, cached ${daysSinceListed.toFixed(1)} days ago)`);
-                    cachedCount++;
-                }
-
-                // Channel started listing
+                // Channel started listing (not from cache)
                 if (prevState.status !== 'Listing' && currentState.status === 'Listing') {
                     currentState.listingStartTime = Date.now();
                     console.log(`🔄 Listing started: ${ch.name}`);
-                    listingCount++;
                 }
 
                 // Channel finished listing
                 if (prevState.status === 'Listing' && currentState.status === 'Listed') {
                     const listingTime = prevState.listingStartTime ? ((Date.now() - prevState.listingStartTime) / 1000).toFixed(2) : 'Unknown';
                     console.log(`✅ Listing complete: ${ch.name} (${currentState.videoCount} videos in ${listingTime}s)`);
-                    completedCount++;
                 }
 
                 // Update tracker
@@ -1369,11 +1376,6 @@
                     listingStartTime: prevState.listingStartTime || currentState.listingStartTime
                 });
             });
-
-            // Summary log on first load
-            if (cachedCount > 0 && channelStatusTracker.size === allChannels.length) {
-                console.log(`📊 Initial load complete: ${cachedCount} channels loaded from cache`);
-            }
         }
 
         renderChannels();
