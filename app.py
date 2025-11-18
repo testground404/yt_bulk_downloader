@@ -156,12 +156,12 @@ def load_progress():
                 logging.error(f"Unexpected error loading progress: {e}. Starting fresh.")
                 app_status["channels"] = []
 
-        # Initial metrics calculation
-        try:
-            calculate_metrics()
-        except Exception as e:
-            logging.error(f"Error calculating initial metrics: {e}")
-            logging.error(f"Continuing anyway...")
+    # Initial metrics calculation - OUTSIDE the lock to avoid deadlock
+    try:
+        calculate_metrics()
+    except Exception as e:
+        logging.error(f"Error calculating initial metrics: {e}")
+        logging.error(f"Continuing anyway...")
 
 def should_relist_channel(channel):
     """Check if a channel should be re-listed based on last listing time.
