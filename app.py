@@ -493,7 +493,10 @@ def run_downloader_task():
 
         try:
             command = ["yt-dlp", "--flat-playlist", "--dump-json", channel["url"]]
-            logging.info(f"Listing channel: {channel['name']}")
+            logging.info(f"🔄 Listing channel: {channel['name']}")
+
+            # Start timing
+            start_time = time.time()
 
             proc = subprocess.run(
                 command,
@@ -509,6 +512,9 @@ def run_downloader_task():
                 for line in proc.stdout.strip().split('\n')
                 if line.strip()
             ]
+
+            # Calculate elapsed time
+            elapsed_time = time.time() - start_time
 
             with status_lock:
                 if videos_data:
@@ -549,7 +555,7 @@ def run_downloader_task():
                 channel["last_listed"] = datetime.utcnow().isoformat() + "Z"
                 app_status["overall_status"] = f"Listed: {channel['name']} ({len(channel['videos'])} videos)"
 
-            logging.info(f"Listed {len(channel['videos'])} videos from {channel['name']}")
+            logging.info(f"✅ Listed {len(channel['videos'])} videos from {channel['name']} in {elapsed_time:.2f}s")
 
         except subprocess.TimeoutExpired:
             logging.error(f"Timeout listing channel {channel['name']}")
