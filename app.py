@@ -26,11 +26,11 @@ class Config:
     PORT: int = 5000
     
     # Performance settings
-    PROGRESS_SAVE_INTERVAL: int = 30  # seconds
-    PROGRESS_SAVE_BATCH: int = 10  # videos
+    PROGRESS_SAVE_INTERVAL: int = 5  # seconds - frequent saves for real-time sync
+    PROGRESS_SAVE_BATCH: int = 3  # videos - save after every 3 videos
     MAX_LOG_LINES: int = 100
     MAX_RECENT_TIMES: int = 10
-    METRICS_CACHE_DURATION: int = 2  # seconds
+    METRICS_CACHE_DURATION: int = 1  # seconds - real-time metrics
     
     # Download settings
     MAX_RETRIES: int = 3

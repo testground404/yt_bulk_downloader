@@ -910,7 +910,7 @@
     let allChannels = [];
     let lastVideoData = [];
     let isRunning = false;
-    let pollInterval = 5000; // Start with 5s polling for idle state
+    let pollInterval = 3000; // Start with 3s polling for idle state
     let pollTimeout;
 
     const sampleData = {
@@ -1241,11 +1241,11 @@
         isRunning = data.running;
         
         if (isRunning && !wasRunning) {
-          // Just started running - speed up polling
-          pollInterval = 1000;
+          // Just started running - speed up polling for real-time updates
+          pollInterval = 500;
         } else if (!isRunning && wasRunning) {
           // Just stopped - slow down polling
-          pollInterval = 5000;
+          pollInterval = 3000;
         }
         
         // Enhanced status with channel serial number
