@@ -566,6 +566,7 @@
               <div class="stats-section-title">📊 Channels</div>
               <div class="stats-item"><div class="label">Total</div><div class="value" id="totalChannels">0</div></div>
               <div class="stats-item"><div class="label">Completed</div><div class="value green" id="channelsProcessed">0</div></div>
+              <div class="stats-item"><div class="label">Time Spent</div><div class="value" id="timeSpent">00:00:00</div></div>
             </div>
             
             <!-- Video Stats -->
@@ -884,6 +885,7 @@
         elements.overallStatus.classList.toggle('is-running', data.running);
         elements.totalEta.textContent = formatEta(data.total_eta_seconds);
         elements.avgTimePerVideo.textContent = `${(data.average_time_per_video || 0).toFixed(1)}s`;
+        elements.timeSpent.textContent = formatEta(data.elapsed_seconds || 0);
         elements.startBtn.disabled = data.running;
         elements.stopBtn.disabled = !data.running;
         
