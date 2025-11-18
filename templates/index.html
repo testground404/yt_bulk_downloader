@@ -762,8 +762,7 @@
             <div class="stats-section">
               <div class="stats-section-title">⚡ Performance</div>
               <div class="stats-item"><div class="label">Errors</div><div class="value red" id="totalErrors">0</div></div>
-              <div class="stats-item"><div class="label">Avg. Time</div><div class="value" id="avgTimePerVideo">0.0s</div></div>
-              <div class="stats-item"><div class="label">Rate</div><div class="value" id="downloadRate">0/hr</div></div>
+              <div class="stats-item"><div class="label">Avg. Time</div><div class="value" id="avgTimePerVideo">0.0s (0/hr)</div></div>
               <div class="stats-item"><div class="label">ETA</div><div class="value" id="totalEta">N/A</div></div>
             </div>
           </div>
@@ -900,7 +899,6 @@
         totalVideosRemaining: document.getElementById('totalVideosRemaining'),
         totalErrors: document.getElementById('totalErrors'),
         totalVideosListed: document.getElementById('totalVideosListed'),
-        downloadRate: document.getElementById('downloadRate'),
         dashboardToggle: document.getElementById('dashboardToggle'),
         toastContainer: document.getElementById('toastContainer'),
         channelTooltip: document.getElementById('channelTooltip')
@@ -1260,11 +1258,16 @@
         elements.overallStatus.textContent = statusText;
         elements.overallStatus.classList.toggle('is-running', data.running);
         elements.totalEta.textContent = formatEta(data.total_eta_seconds);
-        elements.avgTimePerVideo.textContent = `${(data.average_time_per_video || 0).toFixed(1)}s`;
+
+        // Calculate and display average time with download rate
+        const rate = calculateDownloadRate(data.total_videos_processed || 0);
+        const avgTime = (data.average_time_per_video || 0).toFixed(1);
+        elements.avgTimePerVideo.textContent = `${avgTime}s (${rate}/hr)`;
+
         elements.timeSpent.textContent = formatEta(data.elapsed_seconds || 0);
         elements.startBtn.disabled = data.running;
         elements.stopBtn.disabled = !data.running;
-        
+
         // Update stats with animation and trend indicators
         ['totalChannels', 'channelsProcessed', 'totalVideosToProcess', 'totalVideosProcessed', 'totalVideosRemaining', 'totalErrors', 'totalVideosListed'].forEach(key => {
             const snakeCaseKey = toSnakeCase(key);
@@ -1281,10 +1284,6 @@
                 }
             }
         });
-
-        // Calculate and display download rate
-        const rate = calculateDownloadRate(data.total_videos_processed || 0);
-        elements.downloadRate.textContent = `${rate}/hr`;
 
         const listingProg = Math.round(data.listing_progress || 0);
         elements.listingProgressText.textContent = `${data.channels_listed || 0} / ${data.total_channels || 0} Channels`;
