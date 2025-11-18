@@ -189,43 +189,47 @@ def should_relist_channel(channel):
 def save_progress(force=False):
     """Save progress to disk with batching."""
     global progress_dirty, progress_counter, last_progress_save
-    
+
     current_time = time.time()
     progress_counter += 1
-    
+
     # Save if: forced, batch size reached, or time interval elapsed
     should_save = (
-        force or 
+        force or
         progress_counter >= config.PROGRESS_SAVE_BATCH or
         (current_time - last_progress_save) >= config.PROGRESS_SAVE_INTERVAL
     )
-    
+
     if not should_save:
         progress_dirty = True
         return
-    
+
     with status_lock:
         try:
             # Create backup before saving
             if os.path.exists(config.PROGRESS_FILE):
                 shutil.copy(config.PROGRESS_FILE, config.PROGRESS_FILE + ".bak")
-            
+
             data = {
                 "channels": app_status["channels"],
                 "recent_download_times": list(app_status["recent_download_times"]),
                 "last_saved": datetime.utcnow().isoformat(),
                 "version": "2.0.0"  # Track schema version
             }
-            
+
             with open(config.PROGRESS_FILE, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2)
-            
+
             progress_dirty = False
             progress_counter = 0
             last_progress_save = current_time
-            
+
+            logging.info(f"💾 Progress saved: {len(app_status['channels'])} channels")
+
         except IOError as e:
             logging.error(f"Failed to save progress: {e}")
+        except Exception as e:
+            logging.error(f"Unexpected error saving progress: {e}")
 
 def calculate_metrics():
     """Calculate all metrics - OPTIMIZED VERSION.
@@ -438,8 +442,8 @@ def run_downloader_task():
                     if v.get("status") == "error" and v.get("attempts", 0) < config.MAX_RETRIES:
                         v["status"] = "pending"
 
-    # Save progress asynchronously to avoid blocking startup
-    threading.Thread(target=lambda: save_progress(force=True), daemon=True).start()
+    # Save progress after initialization
+    save_progress(force=True)
 
     # Phase 1: Listing
     logging.info("Starting Phase 1: Listing channels")
@@ -470,14 +474,14 @@ def run_downloader_task():
     if len(skipped_channels) > 0 and len(channels_to_list) == 0:
         # All channels skipped - update metrics and move to download phase immediately
         calculate_metrics()
-        threading.Thread(target=save_progress, daemon=True).start()
+        save_progress(force=True)
         with status_lock:
             app_status["current_phase"] = "Downloading"
             app_status["overall_status"] = "All channels already listed - starting downloads"
     elif len(channels_to_list) > 0:
         # Some channels need listing - update metrics once before starting
         calculate_metrics()
-        threading.Thread(target=save_progress, daemon=True).start()
+        save_progress(force=True)
 
     # Now process channels that need listing
     for channel in channels_to_list:
@@ -567,7 +571,7 @@ def run_downloader_task():
                 channel["status"] = "Error"
 
         calculate_metrics()
-        threading.Thread(target=save_progress, daemon=True).start()
+        save_progress(force=True)  # Save synchronously after each channel listing
 
     # Phase 2: Downloading
     with status_lock:
