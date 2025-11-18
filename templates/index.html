@@ -1498,16 +1498,19 @@
             const isProcessing = ch.status === 'Downloading' || ch.status === 'Listing';
             const isDone = ch.status === 'Done' || ch.status === 'Downloaded';
             const isError = ch.status === 'Error';
-            
+
+            // Calculate serial number from original allChannels array
+            const serialNumber = allChannels.findIndex(c => c.url === ch.url) + 1;
+
             // Only expand if this is the currently expanded channel
             const isExpanded = currentlyExpandedChannel === ch.url;
-            
+
             let channelEl = existingChannelMap.get(ch.url);
-            
+
             if (channelEl) {
                 // Update existing channel element in place
-                updateChannelElement(channelEl, ch, isExpanded, isProcessing, isDone, isError);
-                
+                updateChannelElement(channelEl, ch, isExpanded, isProcessing, isDone, isError, serialNumber);
+
                 // Ensure correct position in DOM
                 const currentPosition = Array.from(elements.channelsContainer.children).indexOf(channelEl);
                 if (currentPosition !== idx) {
@@ -1521,8 +1524,8 @@
                 }
             } else {
                 // Create new channel element
-                channelEl = createChannelElement(ch, isExpanded, isProcessing, isDone, isError, idx);
-                
+                channelEl = createChannelElement(ch, isExpanded, isProcessing, isDone, isError, serialNumber);
+
                 // Insert at correct position
                 const referenceNode = elements.channelsContainer.children[idx];
                 if (referenceNode) {
@@ -1592,18 +1595,19 @@
         });
     }
     
-    function createChannelElement(ch, isExpanded, isProcessing, isDone, isError, idx) {
+    function createChannelElement(ch, isExpanded, isProcessing, isDone, isError, serialNumber) {
         const div = document.createElement('div');
         div.className = `channel ${isError ? 'status-error' : (isDone ? 'status-done' : (isProcessing ? 'is-processing' : ''))} ${isExpanded ? 'expanded' : 'collapsed'}`;
         div.dataset.url = ch.url;
-        div.style.animationDelay = `${idx * 0.05}s`;
-        
+        div.style.animationDelay = `${serialNumber * 0.05}s`;
+
         // Create header
         const header = document.createElement('header');
         header.className = 'channel-header';
         header.innerHTML = `
             <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
                 <span class="caret">▸</span>
+                <span class="channel-serial" style="color:var(--muted);font-size:13px;font-weight:500;min-width:32px;">#${serialNumber}</span>
                 <h3 title="${ch.name}">${ch.name}</h3>
             </div>
             <div class="tiny" style="display:flex;align-items:center;gap:12px;">
@@ -1654,12 +1658,12 @@
         });
         
         // Initial update
-        updateChannelElement(div, ch, isExpanded, isProcessing, isDone, isError);
-        
+        updateChannelElement(div, ch, isExpanded, isProcessing, isDone, isError, serialNumber);
+
         return div;
     }
-    
-    function updateChannelElement(channelEl, ch, isExpanded, isProcessing, isDone, isError) {
+
+    function updateChannelElement(channelEl, ch, isExpanded, isProcessing, isDone, isError, serialNumber) {
         const prevState = previousRenderState.get(ch.url) || {};
         
         // Update classes only if changed
