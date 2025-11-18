@@ -208,22 +208,22 @@
     tbody tr:last-child td{ border-bottom: none; }
     tbody tr:nth-child(even) { background-color: rgba(255, 255, 255, 0.02); }
     tbody tr:hover { background-color: rgba(255, 255, 255, 0.05); }
-    tbody tr.in-progress-row { 
+    tbody tr.in-progress-row {
       background: linear-gradient(90deg, rgba(234, 179, 8, 0.15), rgba(234, 179, 8, 0.05)) !important;
-      border-left: 2px solid var(--warning);
       animation: pulse-row 2s ease-in-out infinite;
       position: relative;
     }
     tbody tr.in-progress-row::before {
       content: '';
       position: absolute;
-      left: 0;
+      left: -1px;
       top: 0;
       bottom: 0;
-      width: 2px;
+      width: 3px;
       background: var(--warning);
       box-shadow: 0 0 10px rgba(234, 179, 8, 0.6);
       animation: pulse-border 2s ease-in-out infinite;
+      z-index: 1;
     }
     @keyframes pulse-row {
       0%, 100% { background: linear-gradient(90deg, rgba(234, 179, 8, 0.12), rgba(234, 179, 8, 0.04)) !important; }
