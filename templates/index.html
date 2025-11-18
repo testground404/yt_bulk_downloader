@@ -52,7 +52,21 @@
       gap: 8px;
     }
     .status-badge:hover { background: var(--surface-elevated); border-color: var(--accent); }
-    .status-badge.is-running { border-color: var(--warning); }
+    .status-badge.is-running {
+      border-color: var(--warning);
+      background: linear-gradient(90deg,
+        var(--text-secondary) 0%,
+        var(--text-secondary) 40%,
+        var(--text) 50%,
+        var(--text-secondary) 60%,
+        var(--text-secondary) 100%
+      );
+      background-size: 200% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shimmer-text 2.5s linear infinite;
+    }
     .status-badge.is-running::before {
       content: '';
       width: 8px;
@@ -66,8 +80,10 @@
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.5; transform: scale(0.8); }
     }
-    .status-badge.is-running::after { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent); animation: shimmer 2.5s infinite; }
-    @keyframes shimmer { 100% { left: 100%; } }
+    @keyframes shimmer-text {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
     
     /* Main Grid */
     .main-grid{ display: grid; grid-template-columns: 1fr 520px; gap: 24px; flex-grow: 1; min-height: 0; overflow: hidden; }
@@ -185,7 +201,7 @@
       50% { background-color: rgba(234, 179, 8, 0.12); } 
     }
     
-    .channel-header{ display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; cursor: pointer; gap: 16px; }
+    .channel-header{ display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; cursor: pointer; gap: 16px; }
     .channel-header h3{ margin: 0; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40ch;}
     .channel-counts { 
       font-family: 'Courier New', monospace; 
