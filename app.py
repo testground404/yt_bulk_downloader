@@ -143,18 +143,25 @@ def load_progress():
                 with open(config.PROGRESS_FILE, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     app_status["channels"] = data.get("channels", [])
-                    
+
                     # Restore recent times as deque
                     recent_times = data.get("recent_download_times", [])
                     app_status["recent_download_times"] = deque(recent_times, maxlen=config.MAX_RECENT_TIMES)
-                    
+
                     logging.info(f"Loaded progress: {len(app_status['channels'])} channels")
             except (json.JSONDecodeError, IOError) as e:
                 logging.error(f"Failed to load progress: {e}. Starting fresh.")
                 app_status["channels"] = []
-        
+            except Exception as e:
+                logging.error(f"Unexpected error loading progress: {e}. Starting fresh.")
+                app_status["channels"] = []
+
         # Initial metrics calculation
-        calculate_metrics()
+        try:
+            calculate_metrics()
+        except Exception as e:
+            logging.error(f"Error calculating initial metrics: {e}")
+            logging.error(f"Continuing anyway...")
 
 def should_relist_channel(channel):
     """Check if a channel should be re-listed based on last listing time.
@@ -256,8 +263,14 @@ def calculate_metrics():
 
         # Update elapsed time
         if app_status.get("task_start_time"):
-            start_time = datetime.fromisoformat(app_status["task_start_time"])
-            app_status["elapsed_seconds"] = (datetime.utcnow() - start_time).total_seconds()
+            try:
+                # Clean timestamp to handle 'Z' suffix and timezone offsets
+                clean_start = app_status["task_start_time"].replace('Z', '').split('+')[0]
+                start_time = datetime.fromisoformat(clean_start)
+                app_status["elapsed_seconds"] = (datetime.utcnow() - start_time).total_seconds()
+            except Exception as e:
+                logging.warning(f"Error calculating elapsed time: {e}")
+                app_status["elapsed_seconds"] = 0
 
         # Calculate average time
         recent_times = app_status.get("recent_download_times", deque())
@@ -871,8 +884,10 @@ if __name__ == "__main__":
         exit(1)
     
     # Load existing progress
+    logging.info("Loading progress from disk...")
     load_progress()
-    
+    logging.info("Progress loaded successfully")
+
     logging.info(f"Starting Caption Downloader on {config.HOST}:{config.PORT}")
     logging.info(f"Configuration: {asdict(config)}")
     
