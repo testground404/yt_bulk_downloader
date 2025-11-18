@@ -204,7 +204,8 @@
     /* Table with Alternating Rows */
     table{ width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td{ padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
-    th{ position: sticky; top: 0; background: var(--surface-elevated); z-index: 10; }
+    th{ position: sticky; top: 0; background: var(--surface-elevated); z-index: 10; box-shadow: 0 1px 0 var(--border); }
+    tbody tr:last-child td{ border-bottom: none; }
     tbody tr:nth-child(even) { background-color: rgba(255, 255, 255, 0.02); }
     tbody tr:hover { background-color: rgba(255, 255, 255, 0.05); }
     tbody tr.in-progress-row { 
@@ -1059,13 +1060,18 @@
                 if (inProgressRow) {
                     const tableWrapper = channelEl.querySelector('.channel-table-wrapper');
                     if (tableWrapper) {
+                        const table = tableWrapper.querySelector('table');
+                        const thead = table ? table.querySelector('thead') : null;
+                        const headerHeight = thead ? thead.offsetHeight : 0;
+
                         const rowTop = inProgressRow.offsetTop;
                         const wrapperHeight = tableWrapper.clientHeight;
                         const rowHeight = inProgressRow.offsetHeight;
-                        
-                        // Center the row in the table view
-                        const scrollPosition = rowTop - (wrapperHeight / 2) + (rowHeight / 2);
-                        
+
+                        // Center the row in the table view, accounting for sticky header
+                        // Add extra padding to ensure the row is clearly visible below the header
+                        const scrollPosition = rowTop - headerHeight - ((wrapperHeight - headerHeight) / 2) + (rowHeight / 2);
+
                         tableWrapper.scrollTo({
                             top: Math.max(0, scrollPosition),
                             behavior: 'smooth'
@@ -1237,33 +1243,39 @@
     function updateVideosTable(channelEl, videos) {
         const container = channelEl.querySelector('.channel-videos-container');
         if (!container) return;
-        
+
         if (!videos || videos.length === 0) {
             if (container.innerHTML !== '') {
                 container.innerHTML = '';
             }
             return;
         }
-        
+
         let table = container.querySelector('table');
-        let tbody = table ? table.querySelector('tbody') : null;
-        
+        let tbody = null;
+
         // Create table structure if it doesn't exist
         if (!table) {
             const wrapper = document.createElement('div');
             wrapper.className = 'channel-table-wrapper';
             table = document.createElement('table');
-            
+
             const thead = document.createElement('thead');
             thead.innerHTML = '<tr><th>#</th><th>Title</th><th>Status</th><th>Attempts</th></tr>';
-            
+
             tbody = document.createElement('tbody');
-            
+
             table.appendChild(thead);
             table.appendChild(tbody);
             wrapper.appendChild(table);
             container.innerHTML = '';
             container.appendChild(wrapper);
+        } else {
+            tbody = table.querySelector('tbody');
+            if (!tbody) {
+                tbody = document.createElement('tbody');
+                table.appendChild(tbody);
+            }
         }
         
         // Get existing rows
