@@ -431,14 +431,15 @@ def run_downloader_task():
             
             app_status["channels"].append(channel)
         
-        # Reset error videos for retry (keep existing logic)
+        # Reset error videos for retry - optimized to only process channels with errors
         for c in app_status["channels"]:
-            if c.get("videos"):
+            if c.get("videos") and c.get("video_error_count", 0) > 0:
                 for v in c["videos"]:
                     if v.get("status") == "error" and v.get("attempts", 0) < config.MAX_RETRIES:
                         v["status"] = "pending"
-    
-    save_progress(force=True)
+
+    # Save progress asynchronously to avoid blocking startup
+    threading.Thread(target=lambda: save_progress(force=True), daemon=True).start()
 
     # Phase 1: Listing
     logging.info("Starting Phase 1: Listing channels")
@@ -456,9 +457,18 @@ def run_downloader_task():
     if skipped_count > 0:
         logging.info(f"Instantly skipping {skipped_count} channels - already listed recently")
 
-    # Update metrics once after batch processing skipped channels
-    calculate_metrics()
-    save_progress()
+    # Update metrics once after batch processing skipped channels (fast path)
+    if skipped_count > 0 and len(channels_to_list) == 0:
+        # All channels skipped - update metrics and move to download phase immediately
+        calculate_metrics()
+        threading.Thread(target=save_progress, daemon=True).start()
+        with status_lock:
+            app_status["current_phase"] = "Downloading"
+            app_status["overall_status"] = "All channels already listed - starting downloads"
+    elif len(channels_to_list) > 0:
+        # Some channels need listing - update metrics once before starting
+        calculate_metrics()
+        threading.Thread(target=save_progress, daemon=True).start()
 
     # Now process channels that need listing
     for channel in channels_to_list:
@@ -470,7 +480,7 @@ def run_downloader_task():
             app_status["overall_status"] = f"Listing: {channel['name']}"
 
         calculate_metrics()
-        save_progress()
+        threading.Thread(target=save_progress, daemon=True).start()
 
         try:
             command = ["yt-dlp", "--flat-playlist", "--dump-json", channel["url"]]
@@ -542,12 +552,16 @@ def run_downloader_task():
                 channel["status"] = "Error"
 
         calculate_metrics()
-        save_progress()
-    
+        threading.Thread(target=save_progress, daemon=True).start()
+
     # Phase 2: Downloading
     with status_lock:
         if app_status["running"]:
             app_status["current_phase"] = "Downloading"
+            app_status["overall_status"] = "Starting downloads"
+
+    # Force save before downloading phase
+    save_progress(force=True)
     
     logging.info("Starting Phase 2: Downloading subtitles")
     
