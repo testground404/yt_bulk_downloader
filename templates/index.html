@@ -84,9 +84,167 @@
       0% { background-position: 200% 0; }
       100% { background-position: -200% 0; }
     }
-    
+
+    /* Toast Notifications */
+    .toast-container {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      pointer-events: none;
+    }
+    .toast {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      min-width: 320px;
+      max-width: 400px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      animation: slideInRight 0.3s ease;
+      pointer-events: auto;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .toast.success { border-left: 3px solid var(--success); }
+    .toast.error { border-left: 3px solid var(--danger); }
+    .toast.info { border-left: 3px solid var(--info); }
+    .toast-icon { font-size: 20px; flex-shrink: 0; }
+    .toast-content { flex: 1; }
+    .toast-title { font-weight: 600; margin-bottom: 4px; font-size: 14px; }
+    .toast-message { font-size: 13px; color: var(--text-secondary); }
+    @keyframes slideInRight {
+      from { transform: translateX(400px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOutRight {
+      from { transform: translateX(0); opacity: 1; }
+      to { transform: translateX(400px); opacity: 0; }
+    }
+    .toast.hiding { animation: slideOutRight 0.3s ease; }
+
+    /* Density Controls */
+    .density-toggle {
+      display: flex;
+      gap: 4px;
+      background: var(--surface);
+      padding: 4px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+    .density-btn {
+      padding: 6px 12px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: transparent;
+      color: var(--text-secondary);
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 600;
+    }
+    .density-btn:hover { background: var(--surface-elevated); color: var(--text); }
+    .density-btn.active { background: var(--accent); color: var(--bg); }
+
+    /* View Density States */
+    body.compact .channel-header { padding: 10px 20px; }
+    body.compact .channel-header h3 { font-size: 14px; }
+    body.compact .stats-item { padding: 12px; }
+    body.compact .stats-item .value { font-size: 18px; }
+    body.cozy .channel-header { padding: 18px 28px; }
+    body.cozy .channel-header h3 { font-size: 16px; }
+    body.cozy .stats-item { padding: 20px; }
+    body.cozy .stats-item .value { font-size: 22px; }
+
+    /* Mini Progress Bars in Channels */
+    .channel-mini-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--surface-elevated);
+      overflow: hidden;
+    }
+    .channel-mini-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--info), var(--success));
+      width: 0%;
+      transition: width 0.5s ease;
+    }
+    .channel.status-error .channel-mini-progress-bar {
+      background: var(--danger);
+    }
+
+    /* Trend Indicators */
+    .trend-indicator {
+      display: inline-flex;
+      align-items: center;
+      font-size: 10px;
+      margin-left: 6px;
+      opacity: 0.7;
+    }
+    .trend-up { color: var(--success); }
+    .trend-down { color: var(--danger); }
+
+    /* Collapsible Dashboard */
+    .dashboard-toggle {
+      position: absolute;
+      left: -12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      width: 24px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      z-index: 100;
+    }
+    .dashboard-toggle:hover { background: var(--surface-elevated); }
+    .main-grid.dashboard-collapsed { grid-template-columns: 1fr 0; }
+    .main-grid.dashboard-collapsed aside { opacity: 0; pointer-events: none; }
+
+    /* Animated Counter */
+    .value { transition: color 0.3s; }
+    .value.counting { color: var(--warning); }
+
+    /* Tooltip */
+    .channel-tooltip {
+      position: absolute;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      z-index: 1000;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+      min-width: 200px;
+    }
+    .channel-tooltip.show { opacity: 1; }
+    .tooltip-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 12px;
+    }
+    .tooltip-label { color: var(--text-secondary); }
+    .tooltip-value { font-weight: 600; }
+
     /* Main Grid */
-    .main-grid{ display: grid; grid-template-columns: 1fr 520px; gap: 24px; flex-grow: 1; min-height: 0; overflow: hidden; }
+    .main-grid{ display: grid; grid-template-columns: 1fr 520px; gap: 24px; flex-grow: 1; min-height: 0; overflow: hidden; transition: grid-template-columns 0.3s ease; position: relative; }
     .card{ background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border-subtle); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
     .card-header { padding: 20px 24px; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
     .card-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin: 0; }
@@ -540,6 +698,11 @@
     <header>
         <div><h1>Caption Downloader</h1><p class="header-desc">Real-time monitoring of video caption processing.</p></div>
         <div class="controls">
+            <div class="density-toggle">
+              <button class="density-btn" data-density="compact" title="Compact view">⚊</button>
+              <button class="density-btn active" data-density="comfortable" title="Comfortable view">☰</button>
+              <button class="density-btn" data-density="cozy" title="Cozy view">≣</button>
+            </div>
             <div class="status-badge" id="overallStatus" title="Click for details">Idle</div>
             <button id="refreshBtn" class="secondary icon-btn" title="Refresh Status">↻</button>
             <button id="startBtn">Start</button>
@@ -575,6 +738,7 @@
       </main>
       
       <aside class="card">
+        <div class="dashboard-toggle" id="dashboardToggle" title="Toggle dashboard">◀</div>
         <div class="card-header"><h2 class="card-title">Dashboard</h2></div>
         <div class="card-body">
           <div class="stats-grid">
@@ -599,6 +763,7 @@
               <div class="stats-section-title">⚡ Performance</div>
               <div class="stats-item"><div class="label">Errors</div><div class="value red" id="totalErrors">0</div></div>
               <div class="stats-item"><div class="label">Avg. Time</div><div class="value" id="avgTimePerVideo">0.0s</div></div>
+              <div class="stats-item"><div class="label">Rate</div><div class="value" id="downloadRate">0/hr</div></div>
               <div class="stats-item"><div class="label">ETA</div><div class="value" id="totalEta">N/A</div></div>
             </div>
           </div>
@@ -685,6 +850,25 @@
     </div>
   </div>
 
+  <!-- Toast Notifications Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Channel Tooltip -->
+  <div class="channel-tooltip" id="channelTooltip">
+    <div class="tooltip-row">
+      <span class="tooltip-label">Last Listed:</span>
+      <span class="tooltip-value" id="tooltipLastListed">—</span>
+    </div>
+    <div class="tooltip-row">
+      <span class="tooltip-label">Videos:</span>
+      <span class="tooltip-value" id="tooltipVideos">—</span>
+    </div>
+    <div class="tooltip-row">
+      <span class="tooltip-label">Progress:</span>
+      <span class="tooltip-value" id="tooltipProgress">—</span>
+    </div>
+  </div>
+
 <script>
     const elements = {
         overallStatus: document.getElementById('overallStatus'),
@@ -715,7 +899,11 @@
         totalVideosProcessed: document.getElementById('totalVideosProcessed'),
         totalVideosRemaining: document.getElementById('totalVideosRemaining'),
         totalErrors: document.getElementById('totalErrors'),
-        totalVideosListed: document.getElementById('totalVideosListed')
+        totalVideosListed: document.getElementById('totalVideosListed'),
+        downloadRate: document.getElementById('downloadRate'),
+        dashboardToggle: document.getElementById('dashboardToggle'),
+        toastContainer: document.getElementById('toastContainer'),
+        channelTooltip: document.getElementById('channelTooltip')
     };
     
     let timeChart;
@@ -736,7 +924,144 @@
 
     const formatEta = s => s > 0 ? new Date(s * 1000).toISOString().substr(11, 8) : '00:00:00';
     const toSnakeCase = str => str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-    
+
+    // Previous values for trend tracking
+    let previousValues = {};
+    let downloadRateTracker = { startTime: null, startCount: 0 };
+
+    // Toast Notifications
+    function showToast(title, message, type = 'info') {
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+
+      const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
+
+      toast.innerHTML = `
+        <div class="toast-icon">${icon}</div>
+        <div class="toast-content">
+          <div class="toast-title">${title}</div>
+          <div class="toast-message">${message}</div>
+        </div>
+      `;
+
+      elements.toastContainer.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add('hiding');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // Animated Counter
+    function animateCounter(element, targetValue, duration = 500) {
+      const startValue = parseInt(element.textContent) || 0;
+      const diff = targetValue - startValue;
+      if (diff === 0) return;
+
+      element.classList.add('counting');
+      const startTime = performance.now();
+
+      function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        const easeOutQuad = t => t * (2 - t);
+        const currentValue = Math.round(startValue + diff * easeOutQuad(progress));
+
+        element.textContent = currentValue;
+
+        if (progress < 1) {
+          requestAnimationFrame(update);
+        } else {
+          element.classList.remove('counting');
+        }
+      }
+
+      requestAnimationFrame(update);
+    }
+
+    // Trend Indicator
+    function updateTrendIndicator(elementId, newValue) {
+      const element = document.getElementById(elementId);
+      if (!element) return;
+
+      const oldValue = previousValues[elementId] || newValue;
+      previousValues[elementId] = newValue;
+
+      // Remove existing trend indicator
+      const existing = element.querySelector('.trend-indicator');
+      if (existing) existing.remove();
+
+      if (oldValue !== newValue) {
+        const trend = document.createElement('span');
+        trend.className = `trend-indicator ${newValue > oldValue ? 'trend-up' : 'trend-down'}`;
+        trend.textContent = newValue > oldValue ? '↑' : '↓';
+        element.appendChild(trend);
+
+        setTimeout(() => trend.remove(), 2000);
+      }
+    }
+
+    // Calculate Download Rate
+    function calculateDownloadRate(totalProcessed) {
+      if (!downloadRateTracker.startTime) {
+        downloadRateTracker.startTime = Date.now();
+        downloadRateTracker.startCount = totalProcessed;
+        return 0;
+      }
+
+      const elapsed = (Date.now() - downloadRateTracker.startTime) / 1000 / 3600; // hours
+      const processed = totalProcessed - downloadRateTracker.startCount;
+
+      return elapsed > 0 ? Math.round(processed / elapsed) : 0;
+    }
+
+    // Dashboard Toggle
+    elements.dashboardToggle.addEventListener('click', () => {
+      const grid = document.querySelector('.main-grid');
+      grid.classList.toggle('dashboard-collapsed');
+      elements.dashboardToggle.textContent = grid.classList.contains('dashboard-collapsed') ? '▶' : '◀';
+    });
+
+    // Density Toggle
+    document.querySelectorAll('.density-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.density-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        document.body.classList.remove('compact', 'comfortable', 'cozy');
+        const density = btn.dataset.density;
+        if (density !== 'comfortable') {
+          document.body.classList.add(density);
+        }
+      });
+    });
+
+    // Channel Tooltip
+    let tooltipTimeout;
+    function showChannelTooltip(channel, event) {
+      clearTimeout(tooltipTimeout);
+
+      const tooltip = elements.channelTooltip;
+      const lastListed = channel.last_listed ? new Date(channel.last_listed).toLocaleDateString() : 'Never';
+      const videoCount = channel.videos?.length || 0;
+      const progress = channel.progress || 0;
+
+      document.getElementById('tooltipLastListed').textContent = lastListed;
+      document.getElementById('tooltipVideos').textContent = videoCount;
+      document.getElementById('tooltipProgress').textContent = `${progress}%`;
+
+      tooltip.style.left = `${event.pageX + 10}px`;
+      tooltip.style.top = `${event.pageY + 10}px`;
+      tooltip.classList.add('show');
+    }
+
+    function hideChannelTooltip() {
+      tooltipTimeout = setTimeout(() => {
+        elements.channelTooltip.classList.remove('show');
+      }, 100);
+    }
+
     function initChart() {
       if (timeChart) timeChart.destroy();
       
@@ -783,17 +1108,7 @@
             mode: 'index',
             intersect: false,
           },
-          plugins: { 
-            legend: { 
-              display: true,
-              position: 'bottom',
-              labels: {
-                color: '#a3a3a3',  // Light gray for visibility
-                font: { size: 11 },
-                padding: 12,
-                usePointStyle: true
-              }
-            },
+          plugins: {
             tooltip: {
               backgroundColor: '#1a1a1a',
               titleColor: '#ffffff',
@@ -804,11 +1119,36 @@
               displayColors: true,
               callbacks: {
                 title: function(context) {
-                  return context[0].label || '';
+                  return 'Video: ' + context[0].label;
                 },
                 label: function(context) {
-                  return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + 's';
+                  if (context.datasetIndex === 0) {
+                    return 'Time: ' + context.parsed.y.toFixed(1) + 's';
+                  } else {
+                    return 'Average: ' + context.parsed.y.toFixed(1) + 's';
+                  }
+                },
+                afterBody: function(context) {
+                  const videoIndex = context[0].dataIndex;
+                  const video = lastVideoData[videoIndex];
+                  if (video) {
+                    return [
+                      '',
+                      'Channel: ' + (video.channel || 'Unknown'),
+                      'Status: ' + (video.status || 'Unknown')
+                    ];
+                  }
+                  return [];
                 }
+              }
+            },
+            legend: {
+              display: true,
+              labels: {
+                color: '#888888',
+                font: { size: 11 },
+                usePointStyle: true,
+                padding: 15
               }
             }
           }, 
@@ -925,12 +1265,26 @@
         elements.startBtn.disabled = data.running;
         elements.stopBtn.disabled = !data.running;
         
+        // Update stats with animation and trend indicators
         ['totalChannels', 'channelsProcessed', 'totalVideosToProcess', 'totalVideosProcessed', 'totalVideosRemaining', 'totalErrors', 'totalVideosListed'].forEach(key => {
             const snakeCaseKey = toSnakeCase(key);
             if (elements[key] && data[snakeCaseKey] !== undefined) {
-                elements[key].textContent = data[snakeCaseKey];
+                const newValue = data[snakeCaseKey];
+                const element = elements[key];
+
+                // Use animated counter for numeric values
+                if (typeof newValue === 'number') {
+                    animateCounter(element, newValue);
+                    updateTrendIndicator(key, newValue);
+                } else {
+                    element.textContent = newValue;
+                }
             }
         });
+
+        // Calculate and display download rate
+        const rate = calculateDownloadRate(data.total_videos_processed || 0);
+        elements.downloadRate.textContent = `${rate}/hr`;
 
         const listingProg = Math.round(data.listing_progress || 0);
         elements.listingProgressText.textContent = `${data.channels_listed || 0} / ${data.total_channels || 0} Channels`;
@@ -944,6 +1298,23 @@
 
         updateChart(data.last_10_videos || []);
         
+        // Show toast notifications for completed channels
+        const currentChannelsDone = data.channels?.filter(ch => ch.status === 'Done').length || 0;
+        const prevChannelsDone = previousValues.channelsDone || 0;
+        if (currentChannelsDone > prevChannelsDone) {
+            const newlyDone = data.channels?.filter(ch => ch.status === 'Done').slice(prevChannelsDone);
+            newlyDone?.forEach(ch => {
+                const videoCount = ch.videos?.length || 0;
+                showToast('Channel Completed', `${ch.name} (${videoCount} videos)`, 'success');
+            });
+        }
+        previousValues.channelsDone = currentChannelsDone;
+
+        // Show toast when all downloads are finished
+        if (!data.running && wasRunning && data.channels_processed === data.total_channels && data.total_channels > 0) {
+            showToast('All Downloads Complete!', `Processed ${data.total_videos_processed} videos across ${data.total_channels} channels`, 'success');
+        }
+
         allChannels = data.channels || [];
         renderChannels();
     }
@@ -1152,9 +1523,20 @@
             <div class="channel-videos-container"></div>
         `;
         
+        // Add mini progress bar
+        const miniProgress = document.createElement('div');
+        miniProgress.className = 'channel-mini-progress';
+        miniProgress.innerHTML = '<div class="channel-mini-progress-bar"></div>';
+
         div.appendChild(header);
         div.appendChild(body);
-        
+        div.appendChild(miniProgress);
+
+        // Add tooltip listeners
+        header.addEventListener('mouseenter', (e) => showChannelTooltip(ch, e));
+        header.addEventListener('mousemove', (e) => showChannelTooltip(ch, e));
+        header.addEventListener('mouseleave', hideChannelTooltip);
+
         // Store initial state
         previousRenderState.set(ch.url, {
             status: '',
@@ -1214,6 +1596,13 @@
             if (progressEl) {
                 progressEl.textContent = `${ch.progress || 0}%`;
             }
+
+            // Update mini progress bar
+            const miniProgressBar = channelEl.querySelector('.channel-mini-progress-bar');
+            if (miniProgressBar) {
+                miniProgressBar.style.width = `${ch.progress || 0}%`;
+            }
+
             prevState.progress = ch.progress;
         }
         
