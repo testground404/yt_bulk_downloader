@@ -442,91 +442,105 @@ def run_downloader_task():
 
     # Phase 1: Listing
     logging.info("Starting Phase 1: Listing channels")
+
+    # First, batch-process channels that don't need listing (instant handling)
+    channels_to_list = []
+    skipped_count = 0
+
     for channel in app_status["channels"]:
+        if channel.get("status") == "To Be Listed" or should_relist_channel(channel):
+            channels_to_list.append(channel)
+        elif channel.get("status") in ["Listed", "Downloading", "Done"]:
+            skipped_count += 1
+
+    if skipped_count > 0:
+        logging.info(f"Instantly skipping {skipped_count} channels - already listed recently")
+
+    # Update metrics once after batch processing skipped channels
+    calculate_metrics()
+    save_progress()
+
+    # Now process channels that need listing
+    for channel in channels_to_list:
         if not app_status["running"]:
             break
-        
-        # Check if channel needs to be listed/re-listed
-        if channel.get("status") == "To Be Listed" or should_relist_channel(channel):
+
+        with status_lock:
+            channel["status"] = "Listing"
+            app_status["overall_status"] = f"Listing: {channel['name']}"
+
+        calculate_metrics()
+        save_progress()
+
+        try:
+            command = ["yt-dlp", "--flat-playlist", "--dump-json", channel["url"]]
+            logging.info(f"Listing channel: {channel['name']}")
+
+            proc = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                check=True,
+                timeout=300  # 5 minute timeout
+            )
+
+            videos_data = [
+                json.loads(line)
+                for line in proc.stdout.strip().split('\n')
+                if line.strip()
+            ]
+
             with status_lock:
-                channel["status"] = "Listing"
-                app_status["overall_status"] = f"Listing: {channel['name']}"
-            
-            calculate_metrics()
-            save_progress()
-            
-            try:
-                command = ["yt-dlp", "--flat-playlist", "--dump-json", channel["url"]]
-                logging.info(f"Listing channel: {channel['name']}")
-                
-                proc = subprocess.run(
-                    command,
-                    capture_output=True,
-                    text=True,
-                    encoding='utf-8',
-                    check=True,
-                    timeout=300  # 5 minute timeout
-                )
-                
-                videos_data = [
-                    json.loads(line) 
-                    for line in proc.stdout.strip().split('\n') 
-                    if line.strip()
-                ]
-                
-                with status_lock:
-                    if videos_data:
-                        channel["name"] = (
-                            videos_data[0].get("uploader") or 
-                            videos_data[0].get("channel") or 
-                            channel["name"]
-                        )
-                    
-                    # Get existing video IDs to preserve progress
-                    existing_videos = {v["id"]: v for v in channel.get("videos", [])}
-                    
-                    # Update video list, preserving existing progress
-                    new_videos = []
-                    for v in videos_data:
-                        if "id" not in v:
-                            continue
-                        
-                        video_id = v["id"]
-                        if video_id in existing_videos:
-                            # Keep existing video with its progress
-                            existing_video = existing_videos[video_id]
-                            # Update title in case it changed
-                            existing_video["title"] = v.get("title", existing_video.get("title", "Unknown"))
-                            new_videos.append(existing_video)
-                        else:
-                            # Add new video
-                            new_videos.append({
-                                "id": video_id,
-                                "title": v.get("title", "Unknown"),
-                                "url": f"https://www.youtube.com/watch?v={video_id}",
-                                "status": "pending",
-                                "attempts": 0
-                            })
-                    
-                    channel["videos"] = new_videos
-                    channel["status"] = "Listed"
-                    channel["last_listed"] = datetime.utcnow().isoformat() + "Z"
-                    app_status["overall_status"] = f"Listed: {channel['name']} ({len(channel['videos'])} videos)"
-                    
-                logging.info(f"Listed {len(channel['videos'])} videos from {channel['name']}")
-                
-            except subprocess.TimeoutExpired:
-                logging.error(f"Timeout listing channel {channel['name']}")
-                with status_lock:
-                    channel["status"] = "Error"
-            except Exception as e:
-                logging.error(f"Failed to list channel {channel['name']}: {e}")
-                with status_lock:
-                    channel["status"] = "Error"
-        elif channel.get("status") in ["Listed", "Downloading", "Done"]:
-            # Channel already listed recently, skip to downloading
-            logging.info(f"Skipping listing for {channel['name']} - already listed recently")
-        
+                if videos_data:
+                    channel["name"] = (
+                        videos_data[0].get("uploader") or
+                        videos_data[0].get("channel") or
+                        channel["name"]
+                    )
+
+                # Get existing video IDs to preserve progress
+                existing_videos = {v["id"]: v for v in channel.get("videos", [])}
+
+                # Update video list, preserving existing progress
+                new_videos = []
+                for v in videos_data:
+                    if "id" not in v:
+                        continue
+
+                    video_id = v["id"]
+                    if video_id in existing_videos:
+                        # Keep existing video with its progress
+                        existing_video = existing_videos[video_id]
+                        # Update title in case it changed
+                        existing_video["title"] = v.get("title", existing_video.get("title", "Unknown"))
+                        new_videos.append(existing_video)
+                    else:
+                        # Add new video
+                        new_videos.append({
+                            "id": video_id,
+                            "title": v.get("title", "Unknown"),
+                            "url": f"https://www.youtube.com/watch?v={video_id}",
+                            "status": "pending",
+                            "attempts": 0
+                        })
+
+                channel["videos"] = new_videos
+                channel["status"] = "Listed"
+                channel["last_listed"] = datetime.utcnow().isoformat() + "Z"
+                app_status["overall_status"] = f"Listed: {channel['name']} ({len(channel['videos'])} videos)"
+
+            logging.info(f"Listed {len(channel['videos'])} videos from {channel['name']}")
+
+        except subprocess.TimeoutExpired:
+            logging.error(f"Timeout listing channel {channel['name']}")
+            with status_lock:
+                channel["status"] = "Error"
+        except Exception as e:
+            logging.error(f"Failed to list channel {channel['name']}: {e}")
+            with status_lock:
+                channel["status"] = "Error"
+
         calculate_metrics()
         save_progress()
     
