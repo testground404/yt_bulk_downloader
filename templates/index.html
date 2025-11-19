@@ -1799,7 +1799,7 @@
             tbody.appendChild(row);
         }
 
-        // Auto-scroll to in-progress video (within virtual scroll viewport)
+        // Auto-scroll to in-progress video (position at bottom of viewport)
         if (inProgressIndex !== -1) {
             const inProgressY = inProgressIndex * VIRTUAL_ROW_HEIGHT;
             const viewportTop = scrollTop;
@@ -1807,8 +1807,9 @@
 
             // Scroll if in-progress video is outside viewport
             if (inProgressY < viewportTop || inProgressY > viewportBottom - VIRTUAL_ROW_HEIGHT) {
+                // Position in-progress video at the bottom of visible area
                 wrapper.scrollTo({
-                    top: Math.max(0, inProgressY - viewportHeight / 2),
+                    top: Math.max(0, inProgressY - viewportHeight + VIRTUAL_ROW_HEIGHT),
                     behavior: 'smooth'
                 });
             }
