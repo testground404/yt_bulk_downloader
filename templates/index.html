@@ -1759,9 +1759,15 @@
     function setupVirtualScroll(wrapper, tbody, videos, channelEl) {
         // Track previous in-progress index for this wrapper
         wrapper._prevInProgressIndex = -1;
+        wrapper._isAutoScrolling = false;
 
         let scrollTimeout;
         wrapper.addEventListener('scroll', () => {
+            // Skip re-render if we're auto-scrolling
+            if (wrapper._isAutoScrolling) {
+                return;
+            }
+
             clearTimeout(scrollTimeout);
             scrollTimeout = setTimeout(() => {
                 const currentVideos = channelEl.querySelector('.channel-videos-container')?._currentVideos || videos;
@@ -1847,10 +1853,18 @@
                         newScrollTop = inProgressY;
                     }
 
+                    // Set flag to prevent re-render during auto-scroll
+                    wrapper._isAutoScrolling = true;
+
                     wrapper.scrollTo({
                         top: Math.max(0, newScrollTop),
                         behavior: 'smooth'
                     });
+
+                    // Clear flag after smooth scroll completes (~300ms for smooth scroll)
+                    setTimeout(() => {
+                        wrapper._isAutoScrolling = false;
+                    }, 500);
                 }
                 // If already visible, don't scroll
             }
