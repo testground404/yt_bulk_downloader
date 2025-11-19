@@ -1876,7 +1876,7 @@
                 <td class="video-title" title="${v.title || ''}" style="width: auto">${(v.title || '').slice(0, 70)}</td>
                 <td class="video-status-cell" style="width: 140px">
                     <span class="status-pill status-${(v.status||'').replace(/\s+/g,'-').toLowerCase()}">
-                        ${v.status === 'in-progress' ? '<span class="spinner"></span>' : ''} ${v.status}
+                        <span class="spinner" style="display: ${v.status === 'in-progress' ? 'inline-block' : 'none'}"></span> ${v.status}
                     </span>
                 </td>
                 <td class="tiny video-attempts" style="width: 80px">${v.attempts || 0}</td>
@@ -1915,17 +1915,18 @@
                 const wrapperVisibleHeight = wrapper.clientHeight;
                 const scrollTop = wrapper.scrollTop;
 
-                // Calculate video position relative to wrapper
-                const inProgressY = inProgressIndex * VIRTUAL_ROW_HEIGHT;
-                const videoBottomEdge = inProgressY + VIRTUAL_ROW_HEIGHT;
+                // Calculate position to show in-progress video + 2 extra videos
+                const targetIndex = Math.min(inProgressIndex + 2, videos.length - 1);
+                const targetY = targetIndex * VIRTUAL_ROW_HEIGHT;
+                const targetBottomEdge = targetY + VIRTUAL_ROW_HEIGHT;
 
-                // Check if video's bottom edge is below the wrapper's visible bottom
+                // Check if target bottom edge is below the wrapper's visible bottom
                 const visibleBottom = scrollTop + wrapperVisibleHeight;
-                const isBelowViewport = videoBottomEdge > visibleBottom;
+                const isBelowViewport = targetBottomEdge > visibleBottom;
 
                 if (isBelowViewport) {
-                    // Minimal scroll: just enough to bring bottom edge of video into view
-                    const scrollAmount = videoBottomEdge - visibleBottom;
+                    // Scroll to show in-progress video + 2 extra videos
+                    const scrollAmount = targetBottomEdge - visibleBottom;
 
                     // Set flag to prevent recursive auto-scroll
                     wrapper._isAutoScrolling = true;
@@ -1940,7 +1941,7 @@
                         wrapper._isAutoScrolling = false;
                     }, 500);
                 }
-                // If video's bottom is already visible, don't scroll
+                // If target is already visible, don't scroll
             }
         } else if (inProgressIndex === -1) {
             // No in-progress video, reset tracking
