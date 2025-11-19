@@ -704,14 +704,17 @@ def download_video(channel, video, video_idx, next_video=None):
     """
     # Only update status if not already in-progress (prevents double-increment from atomic transition)
     with status_lock:
+        total_videos = len(channel.get("videos", []))
+        video_num = video_idx + 1
+
         if video.get("status") != "in-progress":
-            app_status["overall_status"] = f"Downloading: {video.get('title', '')[:40]}..."
+            app_status["overall_status"] = f"Downloading [{video_num}/{total_videos}]: {video.get('title', '')[:40]}..."
             video["status"] = "in-progress"
             video["attempts"] = video.get("attempts", 0) + 1
             video["last_attempt"] = datetime.utcnow().isoformat() + "Z"
         else:
             # Already marked in-progress by previous video's atomic transition
-            app_status["overall_status"] = f"Downloading: {video.get('title', '')[:40]}..."
+            app_status["overall_status"] = f"Downloading [{video_num}/{total_videos}]: {video.get('title', '')[:40]}..."
 
     calculate_metrics()
     save_progress()
@@ -774,7 +777,15 @@ def download_video(channel, video, video_idx, next_video=None):
                 next_video["status"] = "in-progress"
                 next_video["attempts"] = next_video.get("attempts", 0) + 1
                 next_video["last_attempt"] = datetime.utcnow().isoformat() + "Z"
-                app_status["overall_status"] = f"Downloading: {next_video.get('title', '')[:40]}..."
+
+                # Find next video index for status display
+                next_video_idx = channel.get("videos", []).index(next_video) if next_video in channel.get("videos", []) else -1
+                if next_video_idx >= 0:
+                    next_video_num = next_video_idx + 1
+                    total_videos = len(channel.get("videos", []))
+                    app_status["overall_status"] = f"Downloading [{next_video_num}/{total_videos}]: {next_video.get('title', '')[:40]}..."
+                else:
+                    app_status["overall_status"] = f"Downloading: {next_video.get('title', '')[:40]}..."
 
     except Exception as e:
         logging.error(f"Error processing video {video['title']}: {e}")
@@ -787,7 +798,15 @@ def download_video(channel, video, video_idx, next_video=None):
                 next_video["status"] = "in-progress"
                 next_video["attempts"] = next_video.get("attempts", 0) + 1
                 next_video["last_attempt"] = datetime.utcnow().isoformat() + "Z"
-                app_status["overall_status"] = f"Downloading: {next_video.get('title', '')[:40]}..."
+
+                # Find next video index for status display
+                next_video_idx = channel.get("videos", []).index(next_video) if next_video in channel.get("videos", []) else -1
+                if next_video_idx >= 0:
+                    next_video_num = next_video_idx + 1
+                    total_videos = len(channel.get("videos", []))
+                    app_status["overall_status"] = f"Downloading [{next_video_num}/{total_videos}]: {next_video.get('title', '')[:40]}..."
+                else:
+                    app_status["overall_status"] = f"Downloading: {next_video.get('title', '')[:40]}..."
     finally:
         with process_lock:
             if video["url"] in channel_processes:
