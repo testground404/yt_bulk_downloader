@@ -926,6 +926,7 @@
     // Previous values for trend tracking
     let previousValues = {};
     let downloadRateTracker = { startTime: null, startCount: 0 };
+    let isFirstRender = true; // Track first render to avoid showing stale toasts
 
     // Toast Notifications
     function showToast(title, message, type = 'info') {
@@ -1297,10 +1298,11 @@
 
         updateChart(data.last_10_videos || []);
         
-        // Show toast notifications for completed channels
+        // Show toast notifications for completed channels (but not on first load)
         const currentChannelsDone = data.channels?.filter(ch => ch.status === 'Done').length || 0;
         const prevChannelsDone = previousValues.channelsDone || 0;
-        if (currentChannelsDone > prevChannelsDone) {
+
+        if (!isFirstRender && currentChannelsDone > prevChannelsDone) {
             const newlyDone = data.channels?.filter(ch => ch.status === 'Done').slice(prevChannelsDone);
             newlyDone?.forEach(ch => {
                 const videoCount = ch.videos?.length || 0;
@@ -1309,9 +1311,14 @@
         }
         previousValues.channelsDone = currentChannelsDone;
 
-        // Show toast when all downloads are finished
-        if (!data.running && wasRunning && data.channels_processed === data.total_channels && data.total_channels > 0) {
+        // Show toast when all downloads are finished (but not on first load)
+        if (!isFirstRender && !data.running && wasRunning && data.channels_processed === data.total_channels && data.total_channels > 0) {
             showToast('All Downloads Complete!', `Processed ${data.total_videos_processed} videos across ${data.total_channels} channels`, 'success');
+        }
+
+        // Mark first render as complete
+        if (isFirstRender) {
+            isFirstRender = false;
         }
 
         allChannels = data.channels || [];

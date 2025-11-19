@@ -144,9 +144,9 @@ def load_progress():
                     data = json.load(f)
                     app_status["channels"] = data.get("channels", [])
 
-                    # Restore recent times as deque
-                    recent_times = data.get("recent_download_times", [])
-                    app_status["recent_download_times"] = deque(recent_times, maxlen=config.MAX_RECENT_TIMES)
+                    # Don't restore recent_download_times - reset for current session only
+                    # This ensures average time only reflects current session performance
+                    app_status["recent_download_times"] = deque(maxlen=config.MAX_RECENT_TIMES)
 
                     logging.info(f"Loaded progress: {len(app_status['channels'])} channels")
             except (json.JSONDecodeError, IOError) as e:
