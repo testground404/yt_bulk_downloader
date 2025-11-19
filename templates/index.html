@@ -107,6 +107,37 @@
 		.toast-content { flex: 1; }
 		.toast-title { font-weight: 600; margin-bottom: 4px; font-size: 14px; }
 		.toast-message { font-size: 13px; color: var(--text-secondary); }
+		.toast-close {
+		  background: transparent;
+		  border: none;
+		  color: var(--text-secondary);
+		  cursor: pointer;
+		  font-size: 18px;
+		  padding: 0;
+		  width: 20px;
+		  height: 20px;
+		  display: flex;
+		  align-items: center;
+		  justify-content: center;
+		  flex-shrink: 0;
+		  transition: color 0.2s ease;
+		}
+		.toast-close:hover {
+		  color: var(--text);
+		}
+		.toast.summary {
+		  border-left: 3px solid #b3b3b3;
+		}
+		.toast-summary-count {
+		  display: inline-block;
+		  background: #1a1a1a;
+		  color: #e6e6e6;
+		  padding: 2px 8px;
+		  border-radius: 999px;
+		  font-size: 11px;
+		  font-weight: 600;
+		  margin-left: 6px;
+		}
 		@keyframes slideInRight {
 		  from { transform: translateX(400px); opacity: 0; }
 		  to { transform: translateX(0); opacity: 1; }
@@ -926,7 +957,22 @@
 		let isFirstRender = true; // Track first render to avoid showing stale toasts
 
 		// Toast Notifications
+		// Toast management
+		const toastQueue = [];
+		const MAX_TOASTS = 3;
+		let summaryToast = null;
+
 		function showToast(title, message, type = 'info') {
+		  // Add to queue
+		  toastQueue.push({ title, message, type, timestamp: Date.now() });
+
+		  // If we have more than MAX_TOASTS, show summary instead
+		  const activeToasts = elements.toastContainer.querySelectorAll('.toast:not(.summary)');
+		  if (activeToasts.length >= MAX_TOASTS) {
+			showSummaryToast();
+			return;
+		  }
+
 		  const toast = document.createElement('div');
 		  toast.className = `toast ${type}`;
 
@@ -938,14 +984,106 @@
 			  <div class="toast-title">${title}</div>
 			  <div class="toast-message">${message}</div>
 			</div>
+			<button class="toast-close" aria-label="Close">×</button>
 		  `;
+
+		  // Add close button handler
+		  const closeBtn = toast.querySelector('.toast-close');
+		  closeBtn.addEventListener('click', () => {
+			closeToast(toast);
+		  });
 
 		  elements.toastContainer.appendChild(toast);
 
+		  // Auto-close after 4 seconds
 		  setTimeout(() => {
-			toast.classList.add('hiding');
-			setTimeout(() => toast.remove(), 300);
+			closeToast(toast);
 		  }, 4000);
+		}
+
+		function closeToast(toast) {
+		  toast.classList.add('hiding');
+		  setTimeout(() => {
+			toast.remove();
+			// Check if we need to update summary
+			const activeToasts = elements.toastContainer.querySelectorAll('.toast:not(.summary)');
+			if (activeToasts.length < MAX_TOASTS && summaryToast) {
+			  closeSummaryToast();
+			}
+		  }, 300);
+		}
+
+		function showSummaryToast() {
+		  // Remove all individual toasts
+		  const individualToasts = elements.toastContainer.querySelectorAll('.toast:not(.summary)');
+		  individualToasts.forEach(toast => toast.remove());
+
+		  // If summary toast already exists, update it
+		  if (summaryToast && elements.toastContainer.contains(summaryToast)) {
+			updateSummaryToast();
+			return;
+		  }
+
+		  // Create new summary toast
+		  summaryToast = document.createElement('div');
+		  summaryToast.className = 'toast summary';
+
+		  const recentToasts = toastQueue.slice(-10); // Show last 10
+		  const successCount = recentToasts.filter(t => t.type === 'success').length;
+		  const errorCount = recentToasts.filter(t => t.type === 'error').length;
+		  const infoCount = recentToasts.filter(t => t.type === 'info').length;
+
+		  let summaryMessage = '';
+		  if (successCount > 0) summaryMessage += `${successCount} completed`;
+		  if (errorCount > 0) summaryMessage += `${summaryMessage ? ', ' : ''}${errorCount} errors`;
+		  if (infoCount > 0) summaryMessage += `${summaryMessage ? ', ' : ''}${infoCount} updates`;
+
+		  summaryToast.innerHTML = `
+			<div class="toast-icon">📋</div>
+			<div class="toast-content">
+			  <div class="toast-title">Multiple Notifications <span class="toast-summary-count">${recentToasts.length}</span></div>
+			  <div class="toast-message">${summaryMessage}</div>
+			</div>
+			<button class="toast-close" aria-label="Close">×</button>
+		  `;
+
+		  const closeBtn = summaryToast.querySelector('.toast-close');
+		  closeBtn.addEventListener('click', () => {
+			closeSummaryToast();
+		  });
+
+		  elements.toastContainer.appendChild(summaryToast);
+		}
+
+		function updateSummaryToast() {
+		  if (!summaryToast) return;
+
+		  const recentToasts = toastQueue.slice(-10);
+		  const successCount = recentToasts.filter(t => t.type === 'success').length;
+		  const errorCount = recentToasts.filter(t => t.type === 'error').length;
+		  const infoCount = recentToasts.filter(t => t.type === 'info').length;
+
+		  let summaryMessage = '';
+		  if (successCount > 0) summaryMessage += `${successCount} completed`;
+		  if (errorCount > 0) summaryMessage += `${summaryMessage ? ', ' : ''}${errorCount} errors`;
+		  if (infoCount > 0) summaryMessage += `${summaryMessage ? ', ' : ''}${infoCount} updates`;
+
+		  const content = summaryToast.querySelector('.toast-content');
+		  content.innerHTML = `
+			<div class="toast-title">Multiple Notifications <span class="toast-summary-count">${recentToasts.length}</span></div>
+			<div class="toast-message">${summaryMessage}</div>
+		  `;
+		}
+
+		function closeSummaryToast() {
+		  if (!summaryToast) return;
+		  summaryToast.classList.add('hiding');
+		  setTimeout(() => {
+			if (summaryToast) {
+			  summaryToast.remove();
+			  summaryToast = null;
+			}
+		  }, 300);
 		}
 
 		// Animated Counter
