@@ -1814,7 +1814,14 @@
             clearTimeout(wrapper._userScrollTimeout);
             wrapper._userScrollTimeout = setTimeout(() => {
                 wrapper._userScrolledRecently = false;
+                wrapper._autoScrollJustReEnabled = true; // Flag to trigger scroll check
                 updateAutoScrollStatus(); // Re-check badge status
+
+                // Trigger a re-render to check if in-progress video needs scrolling
+                const currentVideos = wrapper._currentVideos || videos;
+                if (currentVideos) {
+                    renderVisibleRows(wrapper, tbody, currentVideos, channelEl);
+                }
             }, 10000); // 10 seconds
 
             clearTimeout(scrollTimeout);
@@ -1888,11 +1895,22 @@
             // This prevents state issues when user takes manual control
             wrapper._prevInProgressIndex = inProgressIndex;
 
+            // Check if we should trigger auto-scroll
+            const autoScrollJustReEnabled = wrapper._autoScrollJustReEnabled || false;
+            const shouldCheckScroll = (inProgressChanged || autoScrollJustReEnabled) &&
+                                     !wrapper._isAutoScrolling &&
+                                     !wrapper._userScrolledRecently;
+
+            // Clear the re-enabled flag after checking
+            if (autoScrollJustReEnabled) {
+                wrapper._autoScrollJustReEnabled = false;
+            }
+
             // Only scroll if:
-            // 1. In-progress changed (new video)
+            // 1. In-progress changed (new video) OR auto-scroll just re-enabled
             // 2. Not already auto-scrolling (prevent recursion)
             // 3. User hasn't manually scrolled recently (respect user control)
-            if (inProgressChanged && !wrapper._isAutoScrolling && !wrapper._userScrolledRecently) {
+            if (shouldCheckScroll) {
                 // Use wrapper's actual visible height (not current scroll viewport)
                 const wrapperVisibleHeight = wrapper.clientHeight;
                 const scrollTop = wrapper.scrollTop;
@@ -2093,6 +2111,11 @@
             elements.channelsContainer._userScrollTimeout = setTimeout(() => {
                 elements.channelsContainer._userScrolledRecently = false;
                 updateAutoScrollStatus();
+
+                // Check if there's a processing channel and scroll to it
+                if (lastProcessingChannel) {
+                    scrollToProcessingChannel(lastProcessingChannel);
+                }
             }, 10000); // 10 seconds
         });
     });
