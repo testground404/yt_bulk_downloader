@@ -624,7 +624,7 @@ def run_downloader_task():
                 # Find next video to process
                 target_video = None
                 target_idx = -1
-                
+
                 for idx, v in enumerate(channel.get("videos", [])):
                     if v.get("status") == "pending":
                         # Check retry limit
@@ -638,16 +638,25 @@ def run_downloader_task():
                             target_video = v
                             target_idx = idx
                             break
-            
+
             if not target_video:
                 with status_lock:
                     channel["status"] = "Done"
                 logging.info(f"Completed channel: {channel['name']}")
                 break
-            
-            # Download video
-            download_video(channel, target_video, target_idx)
-            
+
+            # Find the next video to prepare for atomic transition
+            next_video = None
+            with status_lock:
+                for idx, v in enumerate(channel.get("videos", [])):
+                    if idx > target_idx and v.get("status") in ["pending", "error"]:
+                        if v.get("attempts", 0) < config.MAX_RETRIES:
+                            next_video = v
+                            break
+
+            # Download video (will mark next as in-progress atomically when done)
+            download_video(channel, target_video, target_idx, next_video)
+
             # Rate limiting
             time.sleep(config.RATE_LIMIT_DELAY)
         
@@ -666,14 +675,26 @@ def run_downloader_task():
     save_progress(force=True)
     logging.info("Download task completed")
 
-def download_video(channel, video, video_idx):
-    """Download a single video's subtitles with retry logic."""
+def download_video(channel, video, video_idx, next_video=None):
+    """Download a single video's subtitles with retry logic.
+
+    Args:
+        channel: The channel dict
+        video: Current video to download
+        video_idx: Index of current video
+        next_video: Next video to process (for atomic transition)
+    """
+    # Only update status if not already in-progress (prevents double-increment from atomic transition)
     with status_lock:
-        app_status["overall_status"] = f"Downloading: {video.get('title', '')[:40]}..."
-        video["status"] = "in-progress"
-        video["attempts"] = video.get("attempts", 0) + 1
-        video["last_attempt"] = datetime.utcnow().isoformat() + "Z"
-    
+        if video.get("status") != "in-progress":
+            app_status["overall_status"] = f"Downloading: {video.get('title', '')[:40]}..."
+            video["status"] = "in-progress"
+            video["attempts"] = video.get("attempts", 0) + 1
+            video["last_attempt"] = datetime.utcnow().isoformat() + "Z"
+        else:
+            # Already marked in-progress by previous video's atomic transition
+            app_status["overall_status"] = f"Downloading: {video.get('title', '')[:40]}..."
+
     calculate_metrics()
     save_progress()
     
@@ -728,11 +749,25 @@ def download_video(channel, video, video_idx):
             else:
                 video["status"] = "error"
                 logging.error(f"Failed to download: {video['title']} (attempt {video['attempts']}/{config.MAX_RETRIES})")
-        
+
+            # Atomically mark next video as in-progress to prevent visual gap
+            if next_video:
+                next_video["status"] = "in-progress"
+                next_video["attempts"] = next_video.get("attempts", 0) + 1
+                next_video["last_attempt"] = datetime.utcnow().isoformat() + "Z"
+                app_status["overall_status"] = f"Downloading: {next_video.get('title', '')[:40]}..."
+
     except Exception as e:
         logging.error(f"Error processing video {video['title']}: {e}")
         with status_lock:
             video["status"] = "error"
+
+            # Atomically mark next video as in-progress even on error
+            if next_video:
+                next_video["status"] = "in-progress"
+                next_video["attempts"] = next_video.get("attempts", 0) + 1
+                next_video["last_attempt"] = datetime.utcnow().isoformat() + "Z"
+                app_status["overall_status"] = f"Downloading: {next_video.get('title', '')[:40]}..."
     finally:
         with process_lock:
             if video["url"] in channel_processes:
