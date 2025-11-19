@@ -1,1495 +1,2133 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Caption Downloader — Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+	<!doctype html>
+	<html lang="en">
+	<head>
+	  <meta charset="utf-8" />
+	  <meta name="viewport" content="width=device-width,initial-scale=1" />
+	  <title>Caption Downloader — Dashboard</title>
+	  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <style>
-    :root{
-      --bg: #0a0a0a; --surface: #141414; --surface-elevated: #1a1a1a;
-      --muted: #888888; --text: #ffffff; --text-secondary: #a3a3a3;
-      --border: #262626; --border-subtle: #1a1a1a; --accent: #ffffff;
-      --success: #22c55e; --danger: #ef4444; --warning: #eab308; --info: #3b82f6;
-      --radius: 8px; --radius-sm: 4px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, sans-serif;
-    }
-    * { box-sizing: border-box; }
-    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); overflow: hidden; }
-    ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-    
-    .wrap{ max-width: 1680px; margin: 0 auto; padding: 24px; display: flex; flex-direction: column; height: 100vh; gap: 24px; }
-    header{ display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-    h1{ font-size: 24px; margin: 0 0 6px 0; font-weight: 600; }
-    .header-desc { color: var(--text-secondary); font-size: 14px; margin: 0; }
-    .controls{ display: flex; gap: 12px; align-items: center; }
-    button{ background: var(--text); color: var(--bg); border: 0; padding: 10px 20px; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; font-size: 14px; transition: all 0.2s ease; white-space: nowrap; }
-    button:hover{ transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,255,255,0.1); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none;}
-    button.stop, button.secondary{ background: transparent; color: var(--text); border: 1px solid var(--border); }
-    button.stop:hover:not(:disabled), button.secondary:hover:not(:disabled){ background: var(--surface-elevated); }
-    button.icon-btn { padding: 10px; min-width: 40px; display: flex; align-items: center; justify-content: center; }
-    
-    /* Status Badge with Click Indicator */
-    .status-badge{ 
-      position: relative; 
-      padding: 8px 16px 8px 12px; 
-      border-radius: 999px; 
-      background: var(--surface); 
-      font-size: 13px; 
-      color: var(--text-secondary); 
-      border: 1px solid var(--border); 
-      font-weight: 500; 
-      overflow: hidden; 
-      max-width: 300px; 
-      white-space: nowrap; 
-      text-overflow: ellipsis;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .status-badge:hover { background: var(--surface-elevated); border-color: var(--accent); }
-    .status-badge.is-running { border-color: var(--warning); }
-    .status-badge.is-running::before {
-      content: '';
-      width: 8px;
-      height: 8px;
-      background: var(--warning);
-      border-radius: 50%;
-      animation: pulse-dot 2s infinite;
-      flex-shrink: 0;
-    }
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(0.8); }
-    }
-    .status-badge.is-running::after { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent); animation: shimmer 2.5s infinite; }
-    @keyframes shimmer { 100% { left: 100%; } }
-    
-    /* Main Grid */
-    .main-grid{ display: grid; grid-template-columns: 1fr 520px; gap: 24px; flex-grow: 1; min-height: 0; overflow: hidden; }
-    .card{ background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border-subtle); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-    .card-header { padding: 20px 24px; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
-    .card-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin: 0; }
-    .card-body { padding: 24px; flex-grow: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
-    
-    /* Search and Filter */
-    .search-filter-container {
-      padding: 16px 24px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      gap: 12px;
-      flex-shrink: 0;
-    }
-    .search-box {
-      flex: 1;
-      position: relative;
-    }
-    .search-box input {
-      width: 100%;
-      padding: 10px 12px 10px 36px;
-      background: var(--surface-elevated);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--text);
-      font-size: 14px;
-      transition: all 0.2s ease;
-    }
-    .search-box input:focus {
-      outline: none;
-      border-color: var(--accent);
-      background: var(--bg);
-    }
-    .search-box::before {
-      content: '🔍';
-      position: absolute;
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      opacity: 0.5;
-    }
-    .filter-buttons {
-      display: flex;
-      gap: 8px;
-    }
-    .filter-btn {
-      padding: 10px 16px;
-      background: var(--surface-elevated);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--text-secondary);
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      white-space: nowrap;
-    }
-    .filter-btn:hover {
-      background: var(--bg);
-      color: var(--text);
-    }
-    .filter-btn.active {
-      background: var(--accent);
-      color: var(--bg);
-      border-color: var(--accent);
-    }
-    
-    /* Channels Container */
-    #channelsContainer { scroll-behavior: smooth; }
-    .channel{ border-bottom: 1px solid var(--border); border-radius: var(--radius-sm); transition: all 0.3s ease; opacity: 0; animation: fadeIn 0.3s ease forwards; }
-    .channel:hover { background-color: var(--surface-elevated); }
-    @keyframes fadeIn { to { opacity: 1; } }
-    .channel + .channel { margin-top: 8px; }
-    
-    /* Channel Status Colors */
-    .channel.status-error { border-left: 3px solid var(--danger); }
-    .channel.status-done, .channel.status-downloaded { border-left: 3px solid var(--success); }
-    .channel.is-processing { 
-      border-left: 3px solid var(--warning); 
-      background: linear-gradient(90deg, rgba(234, 179, 8, 0.08), transparent);
-      box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.2);
-      position: relative;
-    }
-    
-    /* Pulsing highlight for active processing channel */
-    .channel.is-processing::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      border-radius: var(--radius-sm);
-      box-shadow: 0 0 20px rgba(234, 179, 8, 0.3);
-      animation: pulse-glow 2s ease-in-out infinite;
-      pointer-events: none;
-      z-index: -1;
-    }
-    
-    @keyframes pulse-glow {
-      0%, 100% { 
-        box-shadow: 0 0 10px rgba(234, 179, 8, 0.2);
-        opacity: 1;
-      }
-      50% { 
-        box-shadow: 0 0 25px rgba(234, 179, 8, 0.4);
-        opacity: 0.8;
-      }
-    }
-    
-    @keyframes pulse-bg { 
-      0%, 100% { background-color: rgba(234, 179, 8, 0.05); }
-      50% { background-color: rgba(234, 179, 8, 0.12); } 
-    }
-    
-    .channel-header{ display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; cursor: pointer; gap: 16px; }
-    .channel-header h3{ margin: 0; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40ch;}
-    .channel-counts { 
-      font-family: 'Courier New', monospace; 
-      font-weight: 600;
-      background: var(--surface-elevated);
-      padding: 4px 8px;
-      border-radius: 4px;
-      border: 1px solid var(--border);
-    }
-    .channel-body{ padding: 0 24px 24px 24px; }
-    .collapsed .channel-body{ display: none; }
-    .caret{ width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; transform: rotate(0deg); transition: transform 0.2s ease; }
-    .expanded .caret{ transform: rotate(90deg); }
-    .channel-table-wrapper { border: 1px solid var(--border); border-radius: var(--radius-sm); max-height: 30vh; overflow-y: auto; }
-    
-    /* Table with Alternating Rows */
-    table{ width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td{ padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
-    th{ position: sticky; top: 0; background: var(--surface-elevated); z-index: 10; }
-    tbody tr:nth-child(even) { background-color: rgba(255, 255, 255, 0.02); }
-    tbody tr:hover { background-color: rgba(255, 255, 255, 0.05); }
-    tbody tr.in-progress-row { 
-      background: linear-gradient(90deg, rgba(234, 179, 8, 0.15), rgba(234, 179, 8, 0.05)) !important;
-      border-left: 2px solid var(--warning);
-      animation: pulse-row 2s ease-in-out infinite;
-      position: relative;
-    }
-    tbody tr.in-progress-row::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 2px;
-      background: var(--warning);
-      box-shadow: 0 0 10px rgba(234, 179, 8, 0.6);
-      animation: pulse-border 2s ease-in-out infinite;
-    }
-    @keyframes pulse-row {
-      0%, 100% { background: linear-gradient(90deg, rgba(234, 179, 8, 0.12), rgba(234, 179, 8, 0.04)) !important; }
-      50% { background: linear-gradient(90deg, rgba(234, 179, 8, 0.2), rgba(234, 179, 8, 0.08)) !important; }
-    }
-    @keyframes pulse-border {
-      0%, 100% { box-shadow: 0 0 8px rgba(234, 179, 8, 0.5); }
-      50% { box-shadow: 0 0 15px rgba(234, 179, 8, 0.8); }
-    }
-    td[title] { cursor: help; }
-    
-    .status-pill{ padding: 4px 10px; border-radius: 999px; font-size: 11px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; text-transform: uppercase; }
-    .status-to-be-listed, .status-listed, .status-pending, .status-initialized { background:var(--surface-elevated); color:var(--muted); }
-    .status-listing, .status-downloading, .status-in-progress { background: rgba(234, 179, 8, 0.1); color: var(--warning); }
-    .status-done, .status-downloaded { background: rgba(34, 197, 94, 0.1); color: var(--success); }
-    .status-error{ background: rgba(239, 68, 68, 0.1); color: var(--danger); }
-    
-    /* Channel status badges - apply same color coding */
-    .channel-status {
-      padding: 6px 12px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-      transition: all 0.2s ease;
-    }
-    .channel-status.status-to-be-listed,
-    .channel-status.status-listed,
-    .channel-status.status-pending,
-    .channel-status.status-initialized { 
-      background: var(--surface-elevated); 
-      color: var(--muted);
-      border: 1px solid var(--border);
-    }
-    .channel-status.status-listing,
-    .channel-status.status-downloading,
-    .channel-status.status-in-progress { 
-      background: rgba(234, 179, 8, 0.15); 
-      color: var(--warning);
-      border: 1px solid rgba(234, 179, 8, 0.3);
-      box-shadow: 0 0 12px rgba(234, 179, 8, 0.15);
-    }
-    .channel-status.status-done,
-    .channel-status.status-downloaded { 
-      background: rgba(34, 197, 94, 0.15); 
-      color: var(--success);
-      border: 1px solid rgba(34, 197, 94, 0.3);
-    }
-    .channel-status.status-error { 
-      background: rgba(239, 68, 68, 0.15); 
-      color: var(--danger);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-    }
-    .spinner { display: inline-block; width: 10px; height: 10px; border: 2px solid currentColor; border-radius: 50%; border-top-color: transparent; animation: spin 0.8s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .tiny{ font-size: 12px; color: var(--muted); }
-    
-    /* Enhanced Progress Bars */
-    .progressbar{ 
-      height: 10px; 
-      background: var(--surface-elevated); 
-      border-radius: 999px; 
-      overflow: hidden; 
-      position: relative;
-    }
-    .progressbar > i{ 
-      display: block; 
-      height: 100%; 
-      width: 0%; 
-      transition: width 0.5s ease;
-      background: linear-gradient(90deg, var(--info), var(--success));
-      position: relative;
-      overflow: hidden;
-    }
-    .progressbar > i::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      bottom: 0;
-      right: 0;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-      animation: progress-shimmer 2s infinite;
-    }
-    @keyframes progress-shimmer {
-      0% { transform: translateX(-100%); }
-      100% { transform: translateX(100%); }
-    }
-    .progressbar-label {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--text);
-      text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
-      z-index: 1;
-      pointer-events: none;
-    }
-    
-    .channel-info-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 16px; text-align: center;}
-    .info-item .label { font-size: 11px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
-    .info-item .value { font-weight: 600; font-size: 14px; }
-    
-    /* Reorganized Stats Grid - Grouped by Category */
-    .stats-grid { 
-      display: grid; 
-      grid-template-columns: repeat(3, 1fr); 
-      gap: 20px; 
-      margin-bottom: 24px; 
-    }
-    .stats-section {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .stats-section-title {
-      font-size: 11px;
-      text-transform: uppercase;
-      color: var(--muted);
-      letter-spacing: 0.5px;
-      font-weight: 600;
-      padding-left: 4px;
-    }
-    .stats-item { 
-      padding: 16px; 
-      background: var(--surface-elevated); 
-      border-radius: var(--radius-sm);
-      transition: transform 0.2s;
-      border: 1px solid transparent;
-    }
-    .stats-item:hover { 
-      transform: translateY(-2px); 
-      border-color: var(--border);
-    }
-    .stats-item .label { font-size: 11px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
-    .stats-item .value { font-size: 20px; font-weight: 600; letter-spacing: -0.5px; }
-    .value.green{color:var(--success);} .value.blue{color:var(--info);} .value.red{color:var(--danger);}
-    
-    .progress-section { margin-bottom: 24px; }
-    .progress-item { margin-bottom: 16px; position: relative; }
-    .progress-item:last-child { margin-bottom: 0; }
-    .progress-label { display:flex; justify-content:space-between; font-size:11px; text-transform:uppercase; color:var(--muted); margin-bottom:8px;}
-    .chart-container { flex-grow: 1; min-height: 0; position: relative; cursor: pointer; }
-    .chart-container canvas { cursor: pointer; }
-    
-    /* Modal Styles */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(4px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      animation: fadeIn 0.2s ease;
-    }
-    .modal-overlay.show {
-      display: flex;
-    }
-    .modal {
-      background: var(--surface);
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      max-width: 600px;
-      width: 90%;
-      max-height: 80vh;
-      display: flex;
-      flex-direction: column;
-      animation: slideUp 0.3s ease;
-    }
-    @keyframes slideUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .modal-header {
-      padding: 20px 24px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .modal-title {
-      font-size: 18px;
-      font-weight: 600;
-      margin: 0;
-    }
-    .modal-close {
-      background: transparent;
-      border: none;
-      color: var(--muted);
-      font-size: 24px;
-      cursor: pointer;
-      padding: 0;
-      width: 32px;
-      height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: var(--radius-sm);
-      transition: all 0.2s;
-    }
-    .modal-close:hover {
-      background: var(--surface-elevated);
-      color: var(--text);
-    }
-    .modal-body {
-      padding: 24px;
-      overflow-y: auto;
-    }
-    .modal-info-grid {
-      display: grid;
-      gap: 16px;
-    }
-    .modal-info-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px;
-      background: var(--surface-elevated);
-      border-radius: var(--radius-sm);
-    }
-    .modal-info-label {
-      color: var(--text-secondary);
-      font-size: 13px;
-    }
-    .modal-info-value {
-      font-weight: 600;
-      font-size: 14px;
-    }
-    
-    /* Skeleton Loading States */
-    .skeleton {
-      background: linear-gradient(90deg, var(--surface-elevated) 25%, var(--surface) 50%, var(--surface-elevated) 75%);
-      background-size: 200% 100%;
-      animation: skeleton-loading 1.5s ease-in-out infinite;
-      border-radius: var(--radius-sm);
-    }
-    @keyframes skeleton-loading {
-      0% { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-    .skeleton-stat {
-      height: 80px;
-      margin-bottom: 12px;
-    }
-    .skeleton-channel {
-      height: 80px;
-      margin-bottom: 12px;
-      border-radius: var(--radius-sm);
-    }
-    .skeleton-chart {
-      height: 200px;
-    }
-    
-    /* Empty State */
-    .empty-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 48px 24px;
-      color: var(--text-secondary);
-      text-align: center;
-    }
-    .empty-state-icon {
-      font-size: 48px;
-      margin-bottom: 16px;
-      opacity: 0.3;
-    }
-    .empty-state-text {
-      font-size: 14px;
-    }
-    
-    /* Responsive */
-    @media (max-width: 1200px) {
-      .main-grid { grid-template-columns: 1fr; }
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (max-width: 768px) {
-      .wrap { padding: 16px; }
-      header { flex-direction: column; align-items: stretch; }
-      .controls { justify-content: space-between; }
-      .stats-grid { grid-template-columns: 1fr; }
-      .search-filter-container { flex-direction: column; }
-      .filter-buttons { overflow-x: auto; }
-    }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <header>
-        <div><h1>Caption Downloader</h1><p class="header-desc">Real-time monitoring of video caption processing.</p></div>
-        <div class="controls">
-            <div class="status-badge" id="overallStatus" title="Click for details">Idle</div>
-            <button id="refreshBtn" class="secondary icon-btn" title="Refresh Status">↻</button>
-            <button id="startBtn">Start</button>
-            <button id="stopBtn" class="stop">Stop</button>
-        </div>
-    </header>
+	  <style>
+		:root{
+		  --bg: #0a0a0a; --surface: #141414; --surface-elevated: #1a1a1a;
+		  --muted: #888888; --text: #ffffff; --text-secondary: #a3a3a3;
+		  --border: #262626; --border-subtle: #1a1a1a; --accent: #ffffff;
+		  --success: #22c55e; --danger: #ef4444; --warning: #eab308; --info: #3b82f6;
+		  --radius: 8px; --radius-sm: 4px;
+		  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, sans-serif;
+		}
+		* { box-sizing: border-box; }
+		html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); overflow: hidden; }
+		::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+		
+		.wrap{ max-width: 1680px; margin: 0 auto; padding: 24px; display: flex; flex-direction: column; height: 100vh; gap: 24px; }
+		header{ display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+		h1{ font-size: 24px; margin: 0 0 6px 0; font-weight: 600; }
+		.header-desc { color: var(--text-secondary); font-size: 14px; margin: 0; }
+		.controls{ display: flex; gap: 12px; align-items: center; }
+		button{ background: var(--text); color: var(--bg); border: 0; padding: 10px 20px; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; font-size: 14px; transition: all 0.2s ease; white-space: nowrap; }
+		button:hover{ transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,255,255,0.1); }
+		button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none;}
+		button.stop, button.secondary{ background: transparent; color: var(--text); border: 1px solid var(--border); }
+		button.stop:hover:not(:disabled), button.secondary:hover:not(:disabled){ background: var(--surface-elevated); }
+		button.icon-btn { padding: 10px; min-width: 40px; display: flex; align-items: center; justify-content: center; }
+		
+		/* Status Badge with Click Indicator */
+		.status-badge{
+		  position: relative;
+		  padding: 8px 16px 8px 12px;
+		  border-radius: 999px;
+		  background: var(--surface);
+		  font-size: 13px;
+		  color: var(--text-secondary);
+		  border: 1px solid var(--border);
+		  font-weight: 500;
+		  overflow: hidden;
+		  max-width: 500px;
+		  white-space: nowrap;
+		  text-overflow: ellipsis;
+		  cursor: pointer;
+		  transition: all 0.2s ease;
+		  display: flex;
+		  align-items: center;
+		  gap: 8px;
+		}
+		.status-badge:hover { background: var(--surface-elevated); border-color: var(--accent); }
+		.status-badge.is-running {
+		  border-color: var(--warning);
+		  background: linear-gradient(90deg,
+			var(--text-secondary) 0%,
+			var(--text-secondary) 40%,
+			var(--text) 50%,
+			var(--text-secondary) 60%,
+			var(--text-secondary) 100%
+		  );
+		  background-size: 200% 100%;
+		  -webkit-background-clip: text;
+		  background-clip: text;
+		  -webkit-text-fill-color: transparent;
+		  animation: shimmer-text 2.5s linear infinite;
+		}
+		.status-badge.is-running::before {
+		  content: '';
+		  width: 8px;
+		  height: 8px;
+		  background: var(--warning);
+		  border-radius: 50%;
+		  animation: pulse-dot 2s infinite;
+		  flex-shrink: 0;
+		}
+		@keyframes pulse-dot {
+		  0%, 100% { opacity: 1; transform: scale(1); }
+		  50% { opacity: 0.5; transform: scale(0.8); }
+		}
+		@keyframes shimmer-text {
+		  0% { background-position: 200% 0; }
+		  100% { background-position: -200% 0; }
+		}
 
-    <div class="main-grid">
-      <main class="card">
-        <div class="card-header">
-          <h2 class="card-title">Channels</h2>
-          <span class="tiny" id="channelCount">0 channels</span>
-        </div>
-        <div class="search-filter-container">
-          <div class="search-box">
-            <input type="text" id="searchInput" placeholder="Search channels...">
-          </div>
-          <div class="filter-buttons">
-            <button class="filter-btn active" data-filter="all">All</button>
-            <button class="filter-btn" data-filter="active">Active</button>
-            <button class="filter-btn" data-filter="done">Done</button>
-            <button class="filter-btn" data-filter="error">Errors</button>
-          </div>
-        </div>
-        <div class="card-body" style="padding: 0;">
-          <div id="channelsContainer" style="padding: 24px; overflow-y: auto; flex-grow: 1;">
-            <!-- Skeleton Loading -->
-            <div class="skeleton skeleton-channel"></div>
-            <div class="skeleton skeleton-channel"></div>
-            <div class="skeleton skeleton-channel"></div>
-          </div>
-        </div>
-      </main>
-      
-      <aside class="card">
-        <div class="card-header"><h2 class="card-title">Dashboard</h2></div>
-        <div class="card-body">
-          <div class="stats-grid">
-            <!-- Channel Stats -->
-            <div class="stats-section">
-              <div class="stats-section-title">📊 Channels</div>
-              <div class="stats-item"><div class="label">Total</div><div class="value" id="totalChannels">0</div></div>
-              <div class="stats-item"><div class="label">Completed</div><div class="value green" id="channelsProcessed">0</div></div>
-            </div>
-            
-            <!-- Video Stats -->
-            <div class="stats-section">
-              <div class="stats-section-title">🎬 Videos</div>
-              <div class="stats-item"><div class="label">Listed</div><div class="value" id="totalVideosListed">0</div></div>
-              <div class="stats-item"><div class="label">Processed</div><div class="value green" id="totalVideosProcessed">0</div></div>
-              <div class="stats-item"><div class="label">Remaining</div><div class="value blue" id="totalVideosRemaining">0</div></div>
-            </div>
-            
-            <!-- Performance Stats -->
-            <div class="stats-section">
-              <div class="stats-section-title">⚡ Performance</div>
-              <div class="stats-item"><div class="label">Errors</div><div class="value red" id="totalErrors">0</div></div>
-              <div class="stats-item"><div class="label">Avg. Time</div><div class="value" id="avgTimePerVideo">0.0s</div></div>
-              <div class="stats-item"><div class="label">ETA</div><div class="value" id="totalEta">N/A</div></div>
-            </div>
-          </div>
-          
-          <div class="progress-section">
-              <div class="progress-item">
-                  <div class="progress-label"><span>Listing Progress</span><span id="listingProgressText">0 / 0 Channels</span></div>
-                  <div class="progressbar">
-                    <span class="progressbar-label" id="listingProgressLabel">0%</span>
-                    <i id="listingProgressBar" style="background: linear-gradient(90deg, var(--info), var(--info));"></i>
-                  </div>
-              </div>
-              <div class="progress-item">
-                  <div class="progress-label"><span>Download Progress</span><span id="downloadingProgressText">0%</span></div>
-                  <div class="progressbar">
-                    <span class="progressbar-label" id="downloadingProgressLabel">0%</span>
-                    <i id="downloadingProgressBar"></i>
-                  </div>
-              </div>
-          </div>
-          
-          <div class="card-header" style="padding: 0 0 16px 0; border: none;">
-            <h2 class="card-title">⏱️ Processing Time (Last 10 Videos)</h2>
-          </div>
-          <div class="chart-container" id="chartContainer" title="Click to view video details">
-            <div class="skeleton skeleton-chart"></div>
-            <canvas id="timeChart"></canvas>
-          </div>
-        </div>
-      </aside>
-    </div>
-  </div>
+		/* Toast Notifications */
+		.toast-container {
+		  position: fixed;
+		  top: 24px;
+		  right: 24px;
+		  z-index: 9999;
+		  display: flex;
+		  flex-direction: column;
+		  gap: 12px;
+		  pointer-events: none;
+		}
+		.toast {
+		  background: var(--surface-elevated);
+		  border: 1px solid var(--border);
+		  border-radius: var(--radius);
+		  padding: 16px;
+		  min-width: 320px;
+		  max-width: 400px;
+		  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+		  animation: slideInRight 0.3s ease;
+		  pointer-events: auto;
+		  display: flex;
+		  gap: 12px;
+		  align-items: flex-start;
+		}
+		.toast.success { border-left: 3px solid var(--success); }
+		.toast.error { border-left: 3px solid var(--danger); }
+		.toast.info { border-left: 3px solid var(--info); }
+		.toast-icon { font-size: 20px; flex-shrink: 0; }
+		.toast-content { flex: 1; }
+		.toast-title { font-weight: 600; margin-bottom: 4px; font-size: 14px; }
+		.toast-message { font-size: 13px; color: var(--text-secondary); }
+		@keyframes slideInRight {
+		  from { transform: translateX(400px); opacity: 0; }
+		  to { transform: translateX(0); opacity: 1; }
+		}
+		@keyframes slideOutRight {
+		  from { transform: translateX(0); opacity: 1; }
+		  to { transform: translateX(400px); opacity: 0; }
+		}
+		.toast.hiding { animation: slideOutRight 0.3s ease; }
 
-  <!-- Status Details Modal -->
-  <div class="modal-overlay" id="statusModal">
-    <div class="modal">
-      <div class="modal-header">
-        <h3 class="modal-title">System Status Details</h3>
-        <button class="modal-close" id="closeStatusModal">×</button>
-      </div>
-      <div class="modal-body">
-        <div class="modal-info-grid">
-          <div class="modal-info-item">
-            <span class="modal-info-label">Current Phase</span>
-            <span class="modal-info-value" id="modalCurrentPhase">—</span>
-          </div>
-          <div class="modal-info-item">
-            <span class="modal-info-label">Running Status</span>
-            <span class="modal-info-value" id="modalRunningStatus">—</span>
-          </div>
-          <div class="modal-info-item">
-            <span class="modal-info-label">Time Elapsed</span>
-            <span class="modal-info-value" id="modalTimeSpent">00:00:00</span>
-          </div>
-          <div class="modal-info-item">
-            <span class="modal-info-label">Listing Progress</span>
-            <span class="modal-info-value" id="modalListingProgress">0%</span>
-          </div>
-          <div class="modal-info-item">
-            <span class="modal-info-label">Download Progress</span>
-            <span class="modal-info-value" id="modalDownloadProgress">0%</span>
-          </div>
-          <div class="modal-info-item">
-            <span class="modal-info-label">Total Videos to Process</span>
-            <span class="modal-info-value" id="modalTotalVideos">0</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+		/* Density Controls */
+		.density-toggle {
+		  display: flex;
+		  gap: 4px;
+		  background: var(--surface);
+		  padding: 4px;
+		  border-radius: var(--radius-sm);
+		  border: 1px solid var(--border);
+		}
+		.density-btn {
+		  padding: 6px 12px;
+		  font-size: 11px;
+		  text-transform: uppercase;
+		  letter-spacing: 0.5px;
+		  background: transparent;
+		  color: var(--text-secondary);
+		  border: none;
+		  border-radius: var(--radius-sm);
+		  cursor: pointer;
+		  transition: all 0.2s;
+		  font-weight: 600;
+		}
+		.density-btn:hover { background: var(--surface-elevated); color: var(--text); }
+		.density-btn.active { background: var(--accent); color: var(--bg); }
 
-  <!-- Chart Details Modal -->
-  <div class="modal-overlay" id="chartModal">
-    <div class="modal">
-      <div class="modal-header">
-        <h3 class="modal-title">Recent Video Processing Details</h3>
-        <button class="modal-close" id="closeChartModal">×</button>
-      </div>
-      <div class="modal-body">
-        <div id="chartModalContent" class="modal-info-grid">
-          <!-- Populated dynamically -->
-        </div>
-      </div>
-    </div>
-  </div>
+		/* View Density States */
+		body.compact .channel-header { padding: 10px 20px; }
+		body.compact .channel-header h3 { font-size: 14px; }
+		body.compact .stats-item { padding: 12px; }
+		body.compact .stats-item .value { font-size: 18px; }
+		body.cozy .channel-header { padding: 18px 28px; }
+		body.cozy .channel-header h3 { font-size: 16px; }
+		body.cozy .stats-item { padding: 20px; }
+		body.cozy .stats-item .value { font-size: 22px; }
 
-<script>
-    const elements = {
-        overallStatus: document.getElementById('overallStatus'),
-        startBtn: document.getElementById('startBtn'),
-        stopBtn: document.getElementById('stopBtn'),
-        refreshBtn: document.getElementById('refreshBtn'),
-        totalEta: document.getElementById('totalEta'),
-        avgTimePerVideo: document.getElementById('avgTimePerVideo'),
-        timeSpent: document.getElementById('timeSpent'),
-        listingProgressText: document.getElementById('listingProgressText'),
-        listingProgressBar: document.getElementById('listingProgressBar'),
-        listingProgressLabel: document.getElementById('listingProgressLabel'),
-        downloadingProgressText: document.getElementById('downloadingProgressText'),
-        downloadingProgressBar: document.getElementById('downloadingProgressBar'),
-        downloadingProgressLabel: document.getElementById('downloadingProgressLabel'),
-        chartCanvas: document.getElementById('timeChart'),
-        chartContainer: document.getElementById('chartContainer'),
-        channelsContainer: document.getElementById('channelsContainer'),
-        searchInput: document.getElementById('searchInput'),
-        channelCount: document.getElementById('channelCount'),
-        statusModal: document.getElementById('statusModal'),
-        closeStatusModal: document.getElementById('closeStatusModal'),
-        chartModal: document.getElementById('chartModal'),
-        closeChartModal: document.getElementById('closeChartModal'),
-        totalChannels: document.getElementById('totalChannels'),
-        channelsProcessed: document.getElementById('channelsProcessed'),
-        totalVideosToProcess: document.getElementById('totalVideosToProcess'),
-        totalVideosProcessed: document.getElementById('totalVideosProcessed'),
-        totalVideosRemaining: document.getElementById('totalVideosRemaining'),
-        totalErrors: document.getElementById('totalErrors'),
-        totalVideosListed: document.getElementById('totalVideosListed')
-    };
-    
-    let timeChart;
-    let currentFilter = 'all';
-    let searchTerm = '';
-    let allChannels = [];
-    let lastVideoData = [];
-    let isRunning = false;
-    let pollInterval = 5000; // Start with 5s polling for idle state
-    let pollTimeout;
+		/* Mini Progress Bars in Channels */
+		.channel-mini-progress {
+		  position: absolute;
+		  bottom: 0;
+		  left: 0;
+		  right: 0;
+		  height: 3px;
+		  background: var(--surface-elevated);
+		  overflow: hidden;
+		}
+		.channel-mini-progress-bar {
+		  height: 100%;
+		  background: linear-gradient(90deg, var(--info), var(--success));
+		  width: 0%;
+		  transition: width 0.5s ease;
+		}
+		.channel.status-error .channel-mini-progress-bar {
+		  background: var(--danger);
+		}
 
-    const sampleData = {
-        running: false, overall_status: "Idle", current_phase: "Idle", listing_progress: 0, downloading_progress: 0,
-        total_videos_to_process: 0, total_videos_processed: 0, total_videos_remaining: 0, total_errors: 0, average_time_per_video: 0,
-        total_eta_seconds: 0, elapsed_seconds: 0, total_channels: 0, channels_processed: 0, channels_listed: 0, total_videos_listed: 0,
-        last_10_videos: [], channels: []
-    };
+		/* Trend Indicators */
+		.trend-indicator {
+		  display: inline-flex;
+		  align-items: center;
+		  font-size: 10px;
+		  margin-left: 6px;
+		  opacity: 0.7;
+		}
+		.trend-up { color: var(--success); }
+		.trend-down { color: var(--danger); }
 
-    const formatEta = s => s > 0 ? new Date(s * 1000).toISOString().substr(11, 8) : '00:00:00';
-    const toSnakeCase = str => str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-    
-    function initChart() {
-      if (timeChart) timeChart.destroy();
-      
-      // Hide skeleton, show canvas
-      const skeleton = elements.chartContainer.querySelector('.skeleton');
-      if (skeleton) skeleton.style.display = 'none';
-      elements.chartCanvas.style.display = 'block';
-      
-      timeChart = new Chart(elements.chartCanvas.getContext('2d'), {
-        type: 'line',
-        data: { 
-          labels: [], 
-          datasets: [
-            {
-              label: 'Processing Time',
-              data: [], 
-              backgroundColor: 'rgba(59, 130, 246, 0.1)', 
-              borderColor: 'rgba(59, 130, 246, 0.8)', 
-              borderWidth: 2, 
-              tension: 0.4, 
-              fill: true, 
-              pointRadius: 4,
-              pointHoverRadius: 6,
-              pointBackgroundColor: 'rgba(59, 130, 246, 1)',
-              pointBorderColor: '#fff',
-              pointBorderWidth: 2,
-            },
-            {
-              label: 'Average',
-              data: [],
-              borderColor: 'rgba(234, 179, 8, 0.8)',
-              borderWidth: 2,
-              borderDash: [5, 5],
-              pointRadius: 0,
-              fill: false,
-              tension: 0
-            }
-          ] 
-        },
-        options: { 
-          responsive: true, 
-          maintainAspectRatio: false,
-          interaction: {
-            mode: 'index',
-            intersect: false,
-          },
-          plugins: { 
-            legend: { 
-              display: true,
-              position: 'bottom',
-              labels: {
-                color: '#a3a3a3',  // Light gray for visibility
-                font: { size: 11 },
-                padding: 12,
-                usePointStyle: true
-              }
-            },
-            tooltip: {
-              backgroundColor: '#1a1a1a',
-              titleColor: '#ffffff',
-              bodyColor: '#a3a3a3',
-              borderColor: '#262626',
-              borderWidth: 1,
-              padding: 12,
-              displayColors: true,
-              callbacks: {
-                title: function(context) {
-                  return context[0].label || '';
-                },
-                label: function(context) {
-                  return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + 's';
-                }
-              }
-            }
-          }, 
-          scales: { 
-            y: { 
-              beginAtZero: true, 
-              grid: { 
-                color: '#262626',  // Visible grid lines
-                drawBorder: false
-              },
-              border: {
-                display: false
-              },
-              ticks: { 
-                color: '#888888',  // Light gray for ticks
-                font: { size: 10 },
-                callback: function(value) {
-                  return value.toFixed(1) + 's';
-                }
-              },
-              title: {
-                display: true,
-                text: 'Time (seconds)',
-                color: '#888888',  // Light gray
-                font: { size: 11 }
-              }
-            }, 
-            x: { 
-              grid: { 
-                color: 'transparent',
-                drawBorder: false
-              },
-              border: {
-                display: false
-              },
-              ticks: {
-                color: '#888888',  // Light gray for ticks
-                font: { size: 10 },
-                maxRotation: 45,
-                minRotation: 0
-              },
-              title: {
-                display: true,
-                text: 'Recent Videos',
-                color: '#888888',  // Light gray
-                font: { size: 11 }
-              }
-            } 
-          },
-          onClick: (event, elements) => {
-            if (lastVideoData.length > 0) {
-              showChartDetailsModal();
-            }
-          }
-        }
-      });
-    }
+		/* Collapsible Dashboard */
+		.dashboard-toggle {
+		  position: absolute;
+		  left: -12px;
+		  top: 50%;
+		  transform: translateY(-50%);
+		  background: var(--surface);
+		  border: 1px solid var(--border);
+		  border-radius: var(--radius-sm);
+		  width: 24px;
+		  height: 48px;
+		  display: flex;
+		  align-items: center;
+		  justify-content: center;
+		  cursor: pointer;
+		  transition: all 0.2s;
+		  z-index: 100;
+		}
+		.dashboard-toggle:hover { background: var(--surface-elevated); }
+		.main-grid.dashboard-collapsed { grid-template-columns: 1fr 0; }
+		.main-grid.dashboard-collapsed aside { opacity: 0; pointer-events: none; }
 
-    function updateChart(lastVideos = []) {
-        if (!timeChart) return;
-        
-        lastVideoData = lastVideos;
-        const times = lastVideos.map(v => v.time_taken || 0);
-        const avgTime = times.length > 0 ? times.reduce((a, b) => a + b, 0) / times.length : 0;
-        
-        // Create labels with video titles (shortened)
-        timeChart.data.labels = lastVideos.map((v, i) => {
-          const title = v.title || `Video ${i + 1}`;
-          return title.length > 20 ? title.substring(0, 20) + '...' : title;
-        });
-        
-        timeChart.data.datasets[0].data = times;
-        timeChart.data.datasets[1].data = times.map(() => avgTime); // Average line
-        timeChart.update('none');
-    }
-    
-    function render(data) {
-        // Update running state and adjust polling
-        const wasRunning = isRunning;
-        isRunning = data.running;
-        
-        if (isRunning && !wasRunning) {
-          // Just started running - speed up polling
-          pollInterval = 1000;
-        } else if (!isRunning && wasRunning) {
-          // Just stopped - slow down polling
-          pollInterval = 5000;
-        }
-        
-        elements.overallStatus.textContent = data.overall_status;
-        elements.overallStatus.classList.toggle('is-running', data.running);
-        elements.totalEta.textContent = formatEta(data.total_eta_seconds);
-        elements.avgTimePerVideo.textContent = `${(data.average_time_per_video || 0).toFixed(1)}s`;
-        elements.startBtn.disabled = data.running;
-        elements.stopBtn.disabled = !data.running;
-        
-        ['totalChannels', 'channelsProcessed', 'totalVideosToProcess', 'totalVideosProcessed', 'totalVideosRemaining', 'totalErrors', 'totalVideosListed'].forEach(key => {
-            const snakeCaseKey = toSnakeCase(key);
-            if (elements[key] && data[snakeCaseKey] !== undefined) {
-                elements[key].textContent = data[snakeCaseKey];
-            }
-        });
+		/* Animated Counter */
+		.value { transition: color 0.3s; }
+		.value.counting { color: var(--warning); }
 
-        const listingProg = Math.round(data.listing_progress || 0);
-        elements.listingProgressText.textContent = `${data.channels_listed || 0} / ${data.total_channels || 0} Channels`;
-        elements.listingProgressBar.style.width = `${listingProg}%`;
-        elements.listingProgressLabel.textContent = `${listingProg}%`;
-        
-        const downloadingProg = Math.round(data.downloading_progress || 0);
-        elements.downloadingProgressText.textContent = `${downloadingProg}%`;
-        elements.downloadingProgressBar.style.width = `${downloadingProg}%`;
-        elements.downloadingProgressLabel.textContent = `${downloadingProg}%`;
+		/* Tooltip */
+		.channel-tooltip {
+		  position: absolute;
+		  background: var(--surface-elevated);
+		  border: 1px solid var(--border);
+		  border-radius: var(--radius);
+		  padding: 12px;
+		  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+		  z-index: 1000;
+		  pointer-events: none;
+		  opacity: 0;
+		  transition: opacity 0.2s;
+		  min-width: 200px;
+		}
+		.channel-tooltip.show { opacity: 1; }
+		.tooltip-row {
+		  display: flex;
+		  justify-content: space-between;
+		  padding: 4px 0;
+		  font-size: 12px;
+		}
+		.tooltip-label { color: var(--text-secondary); }
+		.tooltip-value { font-weight: 600; }
 
-        updateChart(data.last_10_videos || []);
-        
-        allChannels = data.channels || [];
-        renderChannels();
-    }
-    
-    // Cache to track previous render state and prevent unnecessary updates
-    let previousRenderState = new Map();
-    let currentlyExpandedChannel = null; // Track which channel is currently expanded
-    let lastProcessingChannel = null; // Track last processing channel for scroll detection
-    
-    function renderChannels() {
-        const filtered = allChannels.filter(ch => {
-            const matchesSearch = !searchTerm || ch.name.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesFilter = currentFilter === 'all' || 
-                                  (currentFilter === 'active' && (ch.status === 'Downloading' || ch.status === 'Listing')) ||
-                                  (currentFilter === 'done' && (ch.status === 'Done' || ch.status === 'Downloaded')) ||
-                                  (currentFilter === 'error' && ch.status === 'Error');
-            return matchesSearch && matchesFilter;
-        });
-        
-        elements.channelCount.textContent = `${filtered.length} channel${filtered.length !== 1 ? 's' : ''}`;
-        
-        if (filtered.length === 0) {
-            if (!elements.channelsContainer.querySelector('.empty-state')) {
-                elements.channelsContainer.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📭</div>
-                        <div class="empty-state-text">No channels found matching your criteria</div>
-                    </div>
-                `;
-            }
-            currentlyExpandedChannel = null;
-            lastProcessingChannel = null;
-            return;
-        }
-        
-        // Get existing channels in DOM - use actual DOM order
-        const existingChannelElements = Array.from(elements.channelsContainer.querySelectorAll('.channel'));
-        const existingChannelMap = new Map();
-        existingChannelElements.forEach(el => {
-            existingChannelMap.set(el.dataset.url, el);
-        });
-        
-        // Track which URLs are in the new filtered list
-        const filteredUrls = new Set(filtered.map(ch => ch.url));
-        
-        // Remove channels that are no longer in filtered list
-        existingChannelElements.forEach(el => {
-            if (!filteredUrls.has(el.dataset.url)) {
-                el.remove();
-                previousRenderState.delete(el.dataset.url);
-                if (currentlyExpandedChannel === el.dataset.url) {
-                    currentlyExpandedChannel = null;
-                }
-            }
-        });
-        
-        // Find the currently processing channel
-        let processingChannel = filtered.find(ch => 
-            ch.status === 'Downloading' || ch.status === 'Listing'
-        );
-        
-        // Track if processing channel changed
-        const processingChannelChanged = processingChannel && 
-                                        processingChannel.url !== lastProcessingChannel;
-        
-        // Auto-expand only the processing channel, collapse all others
-        if (processingChannel) {
-            currentlyExpandedChannel = processingChannel.url;
-            lastProcessingChannel = processingChannel.url;
-        } else if (!currentlyExpandedChannel) {
-            // If no processing channel and nothing manually expanded, collapse all
-            currentlyExpandedChannel = null;
-        }
-        
-        // Process each filtered channel
-        filtered.forEach((ch, idx) => {
-            const isProcessing = ch.status === 'Downloading' || ch.status === 'Listing';
-            const isDone = ch.status === 'Done' || ch.status === 'Downloaded';
-            const isError = ch.status === 'Error';
-            
-            // Only expand if this is the currently expanded channel
-            const isExpanded = currentlyExpandedChannel === ch.url;
-            
-            let channelEl = existingChannelMap.get(ch.url);
-            
-            if (channelEl) {
-                // Update existing channel element in place
-                updateChannelElement(channelEl, ch, isExpanded, isProcessing, isDone, isError);
-                
-                // Ensure correct position in DOM
-                const currentPosition = Array.from(elements.channelsContainer.children).indexOf(channelEl);
-                if (currentPosition !== idx) {
-                    // Reposition without causing reflow
-                    const referenceNode = elements.channelsContainer.children[idx];
-                    if (referenceNode && referenceNode !== channelEl) {
-                        elements.channelsContainer.insertBefore(channelEl, referenceNode);
-                    } else if (!referenceNode) {
-                        elements.channelsContainer.appendChild(channelEl);
-                    }
-                }
-            } else {
-                // Create new channel element
-                channelEl = createChannelElement(ch, isExpanded, isProcessing, isDone, isError, idx);
-                
-                // Insert at correct position
-                const referenceNode = elements.channelsContainer.children[idx];
-                if (referenceNode) {
-                    elements.channelsContainer.insertBefore(channelEl, referenceNode);
-                } else {
-                    elements.channelsContainer.appendChild(channelEl);
-                }
-            }
-        });
-        
-        // Auto-scroll to processing channel if it changed or just started
-        if (processingChannel && processingChannelChanged) {
-            scrollToProcessingChannel(processingChannel.url);
-        }
-    }
-    
-    function scrollToProcessingChannel(channelUrl) {
-        // Use requestAnimationFrame to ensure DOM is updated
-        requestAnimationFrame(() => {
-            const channelEl = elements.channelsContainer.querySelector(`[data-url="${channelUrl}"]`);
-            if (channelEl) {
-                // Calculate position to center the channel in view
-                const container = elements.channelsContainer;
-                const containerHeight = container.clientHeight;
-                const elementTop = channelEl.offsetTop;
-                const elementHeight = channelEl.offsetHeight;
-                
-                // Scroll to center the element, with slight offset for better visibility
-                const scrollPosition = elementTop - (containerHeight / 2) + (elementHeight / 2);
-                
-                container.scrollTo({
-                    top: Math.max(0, scrollPosition),
-                    behavior: 'smooth'
-                });
-            }
-        });
-    }
-    
-    function scrollToProcessingVideo(channelUrl) {
-        // Scroll to the in-progress video row within the channel
-        requestAnimationFrame(() => {
-            const channelEl = elements.channelsContainer.querySelector(`[data-url="${channelUrl}"]`);
-            if (channelEl) {
-                const inProgressRow = channelEl.querySelector('tr.in-progress-row');
-                if (inProgressRow) {
-                    const tableWrapper = channelEl.querySelector('.channel-table-wrapper');
-                    if (tableWrapper) {
-                        const rowTop = inProgressRow.offsetTop;
-                        const wrapperHeight = tableWrapper.clientHeight;
-                        const rowHeight = inProgressRow.offsetHeight;
-                        
-                        // Center the row in the table view
-                        const scrollPosition = rowTop - (wrapperHeight / 2) + (rowHeight / 2);
-                        
-                        tableWrapper.scrollTo({
-                            top: Math.max(0, scrollPosition),
-                            behavior: 'smooth'
-                        });
-                    }
-                }
-            }
-        });
-    }
-    
-    function createChannelElement(ch, isExpanded, isProcessing, isDone, isError, idx) {
-        const div = document.createElement('div');
-        div.className = `channel ${isError ? 'status-error' : (isDone ? 'status-done' : (isProcessing ? 'is-processing' : ''))} ${isExpanded ? 'expanded' : 'collapsed'}`;
-        div.dataset.url = ch.url;
-        div.style.animationDelay = `${idx * 0.05}s`;
-        
-        // Create header
-        const header = document.createElement('header');
-        header.className = 'channel-header';
-        header.innerHTML = `
-            <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
-                <span class="caret">▸</span>
-                <h3 title="${ch.name}">${ch.name}</h3>
-            </div>
-            <div class="tiny" style="display:flex;align-items:center;gap:12px;">
-                <span class="channel-counts" style="color:var(--text-secondary);font-size:12px;white-space:nowrap;"></span>
-                <span class="channel-status" style="gap:6px;display:inline-flex;align-items:center;"></span>
-                <span class="channel-progress" style="min-width:45px;text-align:right;font-weight:600;"></span>
-            </div>
-        `;
-        
-        // Create body
-        const body = document.createElement('div');
-        body.className = 'channel-body';
-        body.innerHTML = `
-            <div class="channel-info-grid">
-                <div class="info-item"><div class="label">Total</div><div class="value channel-total">0</div></div>
-                <div class="info-item"><div class="label">Processed</div><div class="value green channel-processed">0</div></div>
-                <div class="info-item"><div class="label">Remaining</div><div class="value blue channel-remaining">0</div></div>
-                <div class="info-item"><div class="label">Errors</div><div class="value red channel-errors">0</div></div>
-                <div class="info-item"><div class="label">ETA</div><div class="value channel-eta">00:00:00</div></div>
-            </div>
-            <div class="channel-videos-container"></div>
-        `;
-        
-        div.appendChild(header);
-        div.appendChild(body);
-        
-        // Store initial state
-        previousRenderState.set(ch.url, {
-            status: '',
-            progress: -1,
-            video_total_count: -1,
-            video_progress_count: -1,
-            video_remaining_count: -1,
-            video_error_count: -1,
-            eta_seconds: -1,
-            videos_hash: ''
-        });
-        
-        // Initial update
-        updateChannelElement(div, ch, isExpanded, isProcessing, isDone, isError);
-        
-        return div;
-    }
-    
-    function updateChannelElement(channelEl, ch, isExpanded, isProcessing, isDone, isError) {
-        const prevState = previousRenderState.get(ch.url) || {};
-        
-        // Update classes only if changed
-        const newClassName = `channel ${isError ? 'status-error' : (isDone ? 'status-done' : (isProcessing ? 'is-processing' : ''))} ${isExpanded ? 'expanded' : 'collapsed'}`;
-        if (channelEl.className !== newClassName) {
-            channelEl.className = newClassName;
-        }
-        
-        // Update status badge only if status changed
-        if (prevState.status !== ch.status) {
-            const statusEl = channelEl.querySelector('.channel-status');
-            if (statusEl) {
-                const spinner = isProcessing ? '<span class="spinner"></span>' : '';
-                const statusClass = `status-${(ch.status||'').replace(/\s+/g,'-').toLowerCase()}`;
-                statusEl.className = `channel-status ${statusClass}`;
-                statusEl.innerHTML = `${spinner}${ch.status || '—'}`;
-            }
-            prevState.status = ch.status;
-        }
-        
-        // Update counts display (processed/total)
-        const countsChanged = prevState.video_progress_count !== ch.video_progress_count || 
-                             prevState.video_total_count !== ch.video_total_count;
-        
-        if (countsChanged) {
-            const countsEl = channelEl.querySelector('.channel-counts');
-            if (countsEl) {
-                const processed = ch.video_progress_count || 0;
-                const total = ch.video_total_count || 0;
-                const countsText = total > 0 ? `${processed}/${total}` : '—';
-                countsEl.textContent = countsText;
-            }
-        }
-        
-        // Update progress only if changed
-        if (prevState.progress !== ch.progress) {
-            const progressEl = channelEl.querySelector('.channel-progress');
-            if (progressEl) {
-                progressEl.textContent = `${ch.progress || 0}%`;
-            }
-            prevState.progress = ch.progress;
-        }
-        
-        // Update counts only if changed
-        if (prevState.video_total_count !== ch.video_total_count) {
-            const totalEl = channelEl.querySelector('.channel-total');
-            if (totalEl) {
-                totalEl.textContent = ch.video_total_count || 0;
-            }
-            prevState.video_total_count = ch.video_total_count;
-        }
-        
-        if (prevState.video_progress_count !== ch.video_progress_count) {
-            const processedEl = channelEl.querySelector('.channel-processed');
-            if (processedEl) {
-                processedEl.textContent = ch.video_progress_count || 0;
-            }
-            prevState.video_progress_count = ch.video_progress_count;
-        }
-        
-        if (prevState.video_remaining_count !== ch.video_remaining_count) {
-            const remainingEl = channelEl.querySelector('.channel-remaining');
-            if (remainingEl) {
-                remainingEl.textContent = ch.video_remaining_count || 0;
-            }
-            prevState.video_remaining_count = ch.video_remaining_count;
-        }
-        
-        if (prevState.video_error_count !== ch.video_error_count) {
-            const errorsEl = channelEl.querySelector('.channel-errors');
-            if (errorsEl) {
-                errorsEl.textContent = ch.video_error_count || 0;
-            }
-            prevState.video_error_count = ch.video_error_count;
-        }
-        
-        if (prevState.eta_seconds !== ch.eta_seconds) {
-            const etaEl = channelEl.querySelector('.channel-eta');
-            if (etaEl) {
-                etaEl.textContent = formatEta(ch.eta_seconds);
-            }
-            prevState.eta_seconds = ch.eta_seconds;
-        }
-        
-        // Update videos table only if videos actually changed
-        const videosHash = hashVideos(ch.videos);
-        if (prevState.videos_hash !== videosHash) {
-            updateVideosTable(channelEl, ch.videos);
-            prevState.videos_hash = videosHash;
-        }
-        
-        // Store updated state
-        previousRenderState.set(ch.url, prevState);
-    }
-    
-    function hashVideos(videos) {
-        if (!videos || videos.length === 0) return '';
-        // Create a hash of video states for change detection
-        return videos.map(v => `${v.id}:${v.status}:${v.attempts}`).join('|');
-    }
-    
-    function updateVideosTable(channelEl, videos) {
-        const container = channelEl.querySelector('.channel-videos-container');
-        if (!container) return;
-        
-        if (!videos || videos.length === 0) {
-            if (container.innerHTML !== '') {
-                container.innerHTML = '';
-            }
-            return;
-        }
-        
-        let table = container.querySelector('table');
-        let tbody = table ? table.querySelector('tbody') : null;
-        
-        // Create table structure if it doesn't exist
-        if (!table) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'channel-table-wrapper';
-            table = document.createElement('table');
-            
-            const thead = document.createElement('thead');
-            thead.innerHTML = '<tr><th>#</th><th>Title</th><th>Status</th><th>Attempts</th></tr>';
-            
-            tbody = document.createElement('tbody');
-            
-            table.appendChild(thead);
-            table.appendChild(tbody);
-            wrapper.appendChild(table);
-            container.innerHTML = '';
-            container.appendChild(wrapper);
-        }
-        
-        // Get existing rows
-        const existingRows = Array.from(tbody.children);
-        let hasInProgressVideo = false;
-        let inProgressVideoChanged = false;
-        
-        // Update or create rows
-        videos.forEach((v, i) => {
-            let row = existingRows[i];
-            const wasInProgress = row && row.classList.contains('in-progress-row');
-            const isInProgress = v.status === 'in-progress';
-            
-            if (isInProgress) {
-                hasInProgressVideo = true;
-                if (!wasInProgress) {
-                    inProgressVideoChanged = true;
-                }
-            }
-            
-            if (!row) {
-                row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="tiny"></td>
-                    <td class="video-title"></td>
-                    <td class="video-status-cell"></td>
-                    <td class="tiny video-attempts"></td>
-                `;
-                tbody.appendChild(row);
-            }
-            
-            // Update row class
-            const newRowClass = isInProgress ? 'in-progress-row' : '';
-            if (row.className !== newRowClass) {
-                row.className = newRowClass;
-            }
-            
-            // Update cells only if needed
-            const cells = row.children;
-            
-            const indexText = String(i + 1);
-            if (cells[0].textContent !== indexText) {
-                cells[0].textContent = indexText;
-            }
-            
-            const titleCell = cells[1];
-            const newTitle = (v.title || '').slice(0, 70);
-            if (titleCell.textContent !== newTitle || titleCell.getAttribute('title') !== v.title) {
-                titleCell.textContent = newTitle;
-                titleCell.setAttribute('title', v.title || '');
-            }
-            
-            const statusCell = cells[2];
-            const statusPill = statusCell.querySelector('.status-pill') || document.createElement('span');
-            const statusClass = `status-pill status-${(v.status||'').replace(/\s+/g,'-').toLowerCase()}`;
-            const spinner = v.status === 'in-progress' ? '<span class="spinner"></span>' : '';
-            const statusContent = `${spinner} ${v.status}`;
-            
-            if (statusPill.className !== statusClass || statusPill.innerHTML !== statusContent) {
-                statusPill.className = statusClass;
-                statusPill.innerHTML = statusContent;
-                if (!statusCell.contains(statusPill)) {
-                    statusCell.innerHTML = '';
-                    statusCell.appendChild(statusPill);
-                }
-            }
-            
-            const attemptsText = String(v.attempts || 0);
-            if (cells[3].textContent !== attemptsText) {
-                cells[3].textContent = attemptsText;
-            }
-        });
-        
-        // Remove extra rows
-        while (tbody.children.length > videos.length) {
-            tbody.removeChild(tbody.lastChild);
-        }
-        
-        // Auto-scroll to in-progress video if it changed
-        if (hasInProgressVideo && inProgressVideoChanged) {
-            const channelUrl = channelEl.dataset.url;
-            scrollToProcessingVideo(channelUrl);
-        }
-    }
-    
-    // Manual channel expand/collapse with accordion behavior
-    elements.channelsContainer.addEventListener('click', e => {
-        const header = e.target.closest('.channel-header');
-        if (header) {
-            const clickedChannel = header.parentElement;
-            const clickedUrl = clickedChannel.dataset.url;
-            
-            // If clicking the currently expanded channel, collapse it
-            if (currentlyExpandedChannel === clickedUrl && clickedChannel.classList.contains('expanded')) {
-                currentlyExpandedChannel = null;
-                clickedChannel.classList.remove('expanded');
-                clickedChannel.classList.add('collapsed');
-            } else {
-                // Collapse all other channels
-                elements.channelsContainer.querySelectorAll('.channel').forEach(ch => {
-                    ch.classList.remove('expanded');
-                    ch.classList.add('collapsed');
-                });
-                
-                // Expand clicked channel
-                currentlyExpandedChannel = clickedUrl;
-                clickedChannel.classList.remove('collapsed');
-                clickedChannel.classList.add('expanded');
-            }
-        }
-    });
-    
-    // Search functionality
-    elements.searchInput.addEventListener('input', e => {
-        searchTerm = e.target.value;
-        renderChannels();
-    });
-    
-    // Filter functionality
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', e => {
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            currentFilter = e.target.dataset.filter;
-            renderChannels();
-        });
-    });
-    
-    // Status Badge Modal
-    elements.overallStatus.addEventListener('click', () => {
-        elements.statusModal.classList.add('show');
-    });
-    
-    elements.closeStatusModal.addEventListener('click', () => {
-        elements.statusModal.classList.remove('show');
-    });
-    
-    elements.statusModal.addEventListener('click', (e) => {
-        if (e.target === elements.statusModal) {
-            elements.statusModal.classList.remove('show');
-        }
-    });
-    
-    function updateStatusModal(data) {
-        document.getElementById('modalCurrentPhase').textContent = data.current_phase || 'Idle';
-        document.getElementById('modalRunningStatus').textContent = data.running ? 'Running' : 'Stopped';
-        document.getElementById('modalTimeSpent').textContent = formatEta(data.elapsed_seconds);
-        document.getElementById('modalListingProgress').textContent = `${Math.round(data.listing_progress || 0)}%`;
-        document.getElementById('modalDownloadProgress').textContent = `${Math.round(data.downloading_progress || 0)}%`;
-        document.getElementById('modalTotalVideos').textContent = data.total_videos_to_process || 0;
-    }
-    
-    // Chart Details Modal
-    function showChartDetailsModal() {
-        const content = document.getElementById('chartModalContent');
-        if (lastVideoData.length === 0) {
-            content.innerHTML = '<div class="empty-state"><div class="empty-state-text">No video data available</div></div>';
-        } else {
-            content.innerHTML = lastVideoData.map((video, idx) => `
-                <div class="modal-info-item">
-                    <div style="flex-direction: column; align-items: flex-start; gap: 4px;">
-                        <span class="modal-info-label">#${idx + 1}</span>
-                        <span class="modal-info-value" style="font-size: 13px; font-weight: 500;">${video.title || 'Unknown'}</span>
-                    </div>
-                    <span class="modal-info-value">${(video.time_taken || 0).toFixed(2)}s</span>
-                </div>
-            `).join('');
-        }
-        elements.chartModal.classList.add('show');
-    }
-    
-    elements.closeChartModal.addEventListener('click', () => {
-        elements.chartModal.classList.remove('show');
-    });
-    
-    elements.chartModal.addEventListener('click', (e) => {
-        if (e.target === elements.chartModal) {
-            elements.chartModal.classList.remove('show');
-        }
-    });
+		/* Main Grid */
+		.main-grid{ display: grid; grid-template-columns: 1fr 520px; gap: 24px; flex-grow: 1; min-height: 0; overflow: hidden; transition: grid-template-columns 0.3s ease; position: relative; }
+		.card{ background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border-subtle); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+		.card-header { padding: 20px 24px; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
+		.card-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin: 0; }
+		.auto-scroll-badge {
+		  font-size: 11px;
+		  font-weight: 500;
+		  padding: 3px 8px;
+		  border-radius: 12px;
+		  margin-left: 8px;
+		  text-transform: none;
+		  letter-spacing: normal;
+		  display: inline-flex;
+		  align-items: center;
+		  gap: 4px;
+		  transition: all 0.2s ease;
+		}
+		.auto-scroll-badge.on { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+		.auto-scroll-badge.off { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+		.card-body { padding: 24px; flex-grow: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
+		
+		/* Search and Filter */
+		.search-filter-container {
+		  padding: 16px 24px;
+		  border-bottom: 1px solid var(--border);
+		  display: flex;
+		  gap: 12px;
+		  flex-shrink: 0;
+		}
+		.search-box {
+		  flex: 1;
+		  position: relative;
+		}
+		.search-box input {
+		  width: 100%;
+		  padding: 10px 12px 10px 36px;
+		  background: var(--surface-elevated);
+		  border: 1px solid var(--border);
+		  border-radius: var(--radius-sm);
+		  color: var(--text);
+		  font-size: 14px;
+		  transition: all 0.2s ease;
+		}
+		.search-box input:focus {
+		  outline: none;
+		  border-color: var(--accent);
+		  background: var(--bg);
+		}
+		.search-box::before {
+		  content: '🔍';
+		  position: absolute;
+		  left: 12px;
+		  top: 50%;
+		  transform: translateY(-50%);
+		  opacity: 0.5;
+		}
+		.filter-buttons {
+		  display: flex;
+		  gap: 8px;
+		}
+		.filter-btn {
+		  padding: 10px 16px;
+		  background: var(--surface-elevated);
+		  border: 1px solid var(--border);
+		  border-radius: var(--radius-sm);
+		  color: var(--text-secondary);
+		  font-size: 13px;
+		  font-weight: 500;
+		  cursor: pointer;
+		  transition: all 0.2s ease;
+		  white-space: nowrap;
+		}
+		.filter-btn:hover {
+		  background: var(--bg);
+		  color: var(--text);
+		}
+		.filter-btn.active {
+		  background: var(--accent);
+		  color: var(--bg);
+		  border-color: var(--accent);
+		}
+		
+		/* Channels Container */
+		#channelsContainer { scroll-behavior: smooth; }
+		.channel{ border-bottom: 1px solid var(--border); border-radius: var(--radius-sm); transition: all 0.3s ease; opacity: 0; animation: fadeIn 0.3s ease forwards; }
+		.channel:hover { background-color: var(--surface-elevated); }
+		@keyframes fadeIn { to { opacity: 1; } }
+		.channel + .channel { margin-top: 8px; }
+		
+		/* Channel Status Colors */
+		.channel.status-error { border-left: 3px solid var(--danger); }
+		.channel.status-done, .channel.status-downloaded { border-left: 3px solid var(--success); }
+		.channel.is-processing { 
+		  border-left: 3px solid var(--warning); 
+		  background: linear-gradient(90deg, rgba(234, 179, 8, 0.08), transparent);
+		  box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.2);
+		  position: relative;
+		}
+		
+		/* Pulsing highlight for active processing channel */
+		.channel.is-processing::before {
+		  content: '';
+		  position: absolute;
+		  top: 0;
+		  left: 0;
+		  right: 0;
+		  bottom: 0;
+		  border-radius: var(--radius-sm);
+		  box-shadow: 0 0 20px rgba(234, 179, 8, 0.3);
+		  animation: pulse-glow 2s ease-in-out infinite;
+		  pointer-events: none;
+		  z-index: -1;
+		}
+		
+		@keyframes pulse-glow {
+		  0%, 100% { 
+			box-shadow: 0 0 10px rgba(234, 179, 8, 0.2);
+			opacity: 1;
+		  }
+		  50% { 
+			box-shadow: 0 0 25px rgba(234, 179, 8, 0.4);
+			opacity: 0.8;
+		  }
+		}
+		
+		@keyframes pulse-bg { 
+		  0%, 100% { background-color: rgba(234, 179, 8, 0.05); }
+		  50% { background-color: rgba(234, 179, 8, 0.12); } 
+		}
+		
+		.channel-header{ display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; cursor: pointer; gap: 16px; }
+		.channel-header h3{ margin: 0; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40ch;}
+		.channel-counts { 
+		  font-family: 'Courier New', monospace; 
+		  font-weight: 600;
+		  background: var(--surface-elevated);
+		  padding: 4px 8px;
+		  border-radius: 4px;
+		  border: 1px solid var(--border);
+		}
+		.channel-body{ padding: 0 24px 24px 24px; }
+		.collapsed .channel-body{ display: none; }
+		.caret{ width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; transform: rotate(0deg); transition: transform 0.2s ease; }
+		.expanded .caret{ transform: rotate(90deg); }
+		.channel-table-wrapper { border: 1px solid var(--border); border-radius: var(--radius-sm); max-height: 30vh; overflow-y: auto; }
+		
+		/* Table with Alternating Rows */
+		table{ width: 100%; border-collapse: collapse; font-size: 13px; }
+		th, td{ padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+		th{ position: sticky; top: 0; background: var(--surface-elevated); z-index: 10; box-shadow: 0 1px 0 var(--border); }
+		tbody tr:last-child td{ border-bottom: none; }
+		tbody tr:nth-child(even) { background-color: rgba(255, 255, 255, 0.02); }
+		tbody tr:hover { background-color: rgba(255, 255, 255, 0.05); }
+		tbody tr.in-progress-row {
+		  background: linear-gradient(90deg, rgba(234, 179, 8, 0.15), rgba(234, 179, 8, 0.05)) !important;
+		  animation: pulse-row 2s ease-in-out infinite;
+		  position: relative;
+		}
+		/* 1. Ensure the first cell can act as an anchor for the bar */
+		tbody tr.in-progress-row td:first-child {
+		  position: relative;
+		}
 
-    // Intelligent Polling
-    async function poll() {
-        try {
-            const res = await fetch('/status');
-            if (res.ok) {
-                const data = await res.json();
-                render(data);
-                updateStatusModal(data);
-            }
-        } catch (e) { 
-            console.error('Poll error:', e); 
-        } finally { 
-            pollTimeout = setTimeout(poll, pollInterval);
-        }
-    }
-    
-    // Manual Refresh
-    elements.refreshBtn.addEventListener('click', async () => {
-        elements.refreshBtn.disabled = true;
-        elements.refreshBtn.innerHTML = '⟳';
-        elements.refreshBtn.style.animation = 'spin 0.8s linear infinite';
-        
-        try {
-            const res = await fetch('/status');
-            if (res.ok) {
-                const data = await res.json();
-                render(data);
-                updateStatusModal(data);
-            }
-        } catch (e) {
-            console.error('Refresh error:', e);
-        } finally {
-            setTimeout(() => {
-                elements.refreshBtn.disabled = false;
-                elements.refreshBtn.innerHTML = '↻';
-                elements.refreshBtn.style.animation = '';
-            }, 500);
-        }
-    });
+		/* 2. Attach the bar to the first cell instead of the row */
+		tbody tr.in-progress-row td:first-child::before {
+		  content: '';
+		  position: absolute;
+		  left: 0;
+		  top: 0;
+		  bottom: 0;
+		  width: 3px;
+		  background: var(--warning);
+		  box-shadow: 0 0 10px rgba(234, 179, 8, 0.6);
+		  animation: pulse-border 2s ease-in-out infinite;
+		  z-index: 1;
+		}
+		@keyframes pulse-row {
+		  0%, 100% { background: linear-gradient(90deg, rgba(234, 179, 8, 0.12), rgba(234, 179, 8, 0.04)) !important; }
+		  50% { background: linear-gradient(90deg, rgba(234, 179, 8, 0.2), rgba(234, 179, 8, 0.08)) !important; }
+		}
+		@keyframes pulse-border {
+		  0%, 100% { box-shadow: 0 0 8px rgba(234, 179, 8, 0.5); }
+		  50% { box-shadow: 0 0 15px rgba(234, 179, 8, 0.8); }
+		}
+		td[title] { cursor: help; }
+		
+		.status-pill{ padding: 4px 10px; border-radius: 999px; font-size: 11px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; text-transform: uppercase; }
+		.status-to-be-listed, .status-listed, .status-pending, .status-initialized { background:var(--surface-elevated); color:var(--muted); }
+		.status-listing, .status-downloading, .status-in-progress { background: rgba(234, 179, 8, 0.1); color: var(--warning); }
+		.status-done, .status-downloaded { background: rgba(34, 197, 94, 0.1); color: var(--success); }
+		.status-error{ background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+		
+		/* Channel status badges - apply same color coding */
+		.channel-status {
+		  padding: 6px 12px;
+		  border-radius: 999px;
+		  font-size: 12px;
+		  font-weight: 600;
+		  text-transform: uppercase;
+		  letter-spacing: 0.3px;
+		  transition: all 0.2s ease;
+		}
+		.channel-status.status-to-be-listed,
+		.channel-status.status-listed,
+		.channel-status.status-pending,
+		.channel-status.status-initialized { 
+		  background: var(--surface-elevated); 
+		  color: var(--muted);
+		  border: 1px solid var(--border);
+		}
+		.channel-status.status-listing,
+		.channel-status.status-downloading,
+		.channel-status.status-in-progress { 
+		  background: rgba(234, 179, 8, 0.15); 
+		  color: var(--warning);
+		  border: 1px solid rgba(234, 179, 8, 0.3);
+		  box-shadow: 0 0 12px rgba(234, 179, 8, 0.15);
+		}
+		.channel-status.status-done,
+		.channel-status.status-downloaded { 
+		  background: rgba(34, 197, 94, 0.15); 
+		  color: var(--success);
+		  border: 1px solid rgba(34, 197, 94, 0.3);
+		}
+		.channel-status.status-error { 
+		  background: rgba(239, 68, 68, 0.15); 
+		  color: var(--danger);
+		  border: 1px solid rgba(239, 68, 68, 0.3);
+		}
+		.spinner { display: inline-block; width: 10px; height: 10px; border: 2px solid currentColor; border-radius: 50%; border-top-color: transparent; animation: spin 0.8s linear infinite; }
+		@keyframes spin { to { transform: rotate(360deg); } }
+		.tiny{ font-size: 12px; color: var(--muted); }
+		
+		/* Enhanced Progress Bars */
+		.progressbar{ 
+		  height: 10px; 
+		  background: var(--surface-elevated); 
+		  border-radius: 999px; 
+		  overflow: hidden; 
+		  position: relative;
+		}
+		.progressbar > i{ 
+		  display: block; 
+		  height: 100%; 
+		  width: 0%; 
+		  transition: width 0.5s ease;
+		  background: linear-gradient(90deg, var(--info), var(--success));
+		  position: relative;
+		  overflow: hidden;
+		}
+		.progressbar > i::after {
+		  content: '';
+		  position: absolute;
+		  top: 0;
+		  left: 0;
+		  bottom: 0;
+		  right: 0;
+		  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+		  animation: progress-shimmer 2s infinite;
+		}
+		@keyframes progress-shimmer {
+		  0% { transform: translateX(-100%); }
+		  100% { transform: translateX(100%); }
+		}
+		.progressbar-label {
+		  position: absolute;
+		  top: 50%;
+		  left: 50%;
+		  transform: translate(-50%, -50%);
+		  font-size: 10px;
+		  font-weight: 700;
+		  color: var(--text);
+		  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+		  z-index: 1;
+		  pointer-events: none;
+		}
+		
+		.channel-info-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 16px; text-align: center;}
+		.info-item .label { font-size: 11px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+		.info-item .value { font-weight: 600; font-size: 14px; }
+		
+		/* Reorganized Stats Grid - Grouped by Category */
+		.stats-grid { 
+		  display: grid; 
+		  grid-template-columns: repeat(3, 1fr); 
+		  gap: 20px; 
+		  margin-bottom: 24px; 
+		}
+		.stats-section {
+		  display: flex;
+		  flex-direction: column;
+		  gap: 12px;
+		}
+		.stats-section-title {
+		  font-size: 11px;
+		  text-transform: uppercase;
+		  color: var(--muted);
+		  letter-spacing: 0.5px;
+		  font-weight: 600;
+		  padding-left: 4px;
+		}
+		.stats-item { 
+		  padding: 16px; 
+		  background: var(--surface-elevated); 
+		  border-radius: var(--radius-sm);
+		  transition: transform 0.2s;
+		  border: 1px solid transparent;
+		}
+		.stats-item:hover { 
+		  transform: translateY(-2px); 
+		  border-color: var(--border);
+		}
+		.stats-item .label { font-size: 11px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+		.stats-item .value { font-size: 20px; font-weight: 600; letter-spacing: -0.5px; }
+		.value.green{color:var(--success);} .value.blue{color:var(--info);} .value.red{color:var(--danger);}
+		
+		.progress-section { margin-bottom: 24px; }
+		.progress-item { margin-bottom: 16px; position: relative; }
+		.progress-item:last-child { margin-bottom: 0; }
+		.progress-label { display:flex; justify-content:space-between; font-size:11px; text-transform:uppercase; color:var(--muted); margin-bottom:8px;}
+		.chart-container { flex-grow: 1; min-height: 0; position: relative; cursor: pointer; }
+		.chart-container canvas { cursor: pointer; }
+		
+		/* Modal Styles */
+		.modal-overlay {
+		  position: fixed;
+		  top: 0;
+		  left: 0;
+		  right: 0;
+		  bottom: 0;
+		  background: rgba(0, 0, 0, 0.8);
+		  backdrop-filter: blur(4px);
+		  display: none;
+		  align-items: center;
+		  justify-content: center;
+		  z-index: 1000;
+		  animation: fadeIn 0.2s ease;
+		}
+		.modal-overlay.show {
+		  display: flex;
+		}
+		.modal {
+		  background: var(--surface);
+		  border-radius: var(--radius);
+		  border: 1px solid var(--border);
+		  max-width: 600px;
+		  width: 90%;
+		  max-height: 80vh;
+		  display: flex;
+		  flex-direction: column;
+		  animation: slideUp 0.3s ease;
+		}
+		@keyframes slideUp {
+		  from { opacity: 0; transform: translateY(20px); }
+		  to { opacity: 1; transform: translateY(0); }
+		}
+		.modal-header {
+		  padding: 20px 24px;
+		  border-bottom: 1px solid var(--border);
+		  display: flex;
+		  align-items: center;
+		  justify-content: space-between;
+		}
+		.modal-title {
+		  font-size: 18px;
+		  font-weight: 600;
+		  margin: 0;
+		}
+		.modal-close {
+		  background: transparent;
+		  border: none;
+		  color: var(--muted);
+		  font-size: 24px;
+		  cursor: pointer;
+		  padding: 0;
+		  width: 32px;
+		  height: 32px;
+		  display: flex;
+		  align-items: center;
+		  justify-content: center;
+		  border-radius: var(--radius-sm);
+		  transition: all 0.2s;
+		}
+		.modal-close:hover {
+		  background: var(--surface-elevated);
+		  color: var(--text);
+		}
+		.modal-body {
+		  padding: 24px;
+		  overflow-y: auto;
+		}
+		.modal-info-grid {
+		  display: grid;
+		  gap: 16px;
+		}
+		.modal-info-item {
+		  display: flex;
+		  justify-content: space-between;
+		  align-items: center;
+		  padding: 12px;
+		  background: var(--surface-elevated);
+		  border-radius: var(--radius-sm);
+		}
+		.modal-info-label {
+		  color: var(--text-secondary);
+		  font-size: 13px;
+		}
+		.modal-info-value {
+		  font-weight: 600;
+		  font-size: 14px;
+		}
+		
+		/* Skeleton Loading States */
+		.skeleton {
+		  background: linear-gradient(90deg, var(--surface-elevated) 25%, var(--surface) 50%, var(--surface-elevated) 75%);
+		  background-size: 200% 100%;
+		  animation: skeleton-loading 1.5s ease-in-out infinite;
+		  border-radius: var(--radius-sm);
+		}
+		@keyframes skeleton-loading {
+		  0% { background-position: 200% 0; }
+		  100% { background-position: -200% 0; }
+		}
+		.skeleton-stat {
+		  height: 80px;
+		  margin-bottom: 12px;
+		}
+		.skeleton-channel {
+		  height: 80px;
+		  margin-bottom: 12px;
+		  border-radius: var(--radius-sm);
+		}
+		.skeleton-chart {
+		  height: 200px;
+		}
+		
+		/* Empty State */
+		.empty-state {
+		  display: flex;
+		  flex-direction: column;
+		  align-items: center;
+		  justify-content: center;
+		  padding: 48px 24px;
+		  color: var(--text-secondary);
+		  text-align: center;
+		}
+		.empty-state-icon {
+		  font-size: 48px;
+		  margin-bottom: 16px;
+		  opacity: 0.3;
+		}
+		.empty-state-text {
+		  font-size: 14px;
+		}
+		
+		/* Responsive */
+		@media (max-width: 1200px) {
+		  .main-grid { grid-template-columns: 1fr; }
+		  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+		}
+		@media (max-width: 768px) {
+		  .wrap { padding: 16px; }
+		  header { flex-direction: column; align-items: stretch; }
+		  .controls { justify-content: space-between; }
+		  .stats-grid { grid-template-columns: 1fr; }
+		  .search-filter-container { flex-direction: column; }
+		  .filter-buttons { overflow-x: auto; }
+		}
+	  </style>
+	</head>
+	<body>
+	  <div class="wrap">
+		<header>
+			<div><h1>Caption Downloader</h1><p class="header-desc">Real-time monitoring of video caption processing.</p></div>
+			<div class="controls">
+				<div class="density-toggle">
+				  <button class="density-btn" data-density="compact" title="Compact view">⚊</button>
+				  <button class="density-btn active" data-density="comfortable" title="Comfortable view">☰</button>
+				  <button class="density-btn" data-density="cozy" title="Cozy view">≣</button>
+				</div>
+				<div class="status-badge" id="overallStatus" title="Click for details">Idle</div>
+				<button id="refreshBtn" class="secondary icon-btn" title="Refresh Status">↻</button>
+				<button id="startBtn">Start</button>
+				<button id="stopBtn" class="stop">Stop</button>
+			</div>
+		</header>
 
-    document.addEventListener('DOMContentLoaded', () => {
-        initChart();
-        render(sampleData);
-        poll();
-        elements.startBtn.addEventListener('click', () => fetch('/start', {method:'POST'}).catch(console.error));
-        elements.stopBtn.addEventListener('click', () => fetch('/stop', {method:'POST'}).catch(console.error));
-    });
-</script>
-</body>
-</html>
+		<div class="main-grid">
+		  <main class="card">
+			<div class="card-header">
+			  <h2 class="card-title">Channels <span id="autoScrollStatus" class="auto-scroll-badge on" title="Auto-scroll status">🔄 Auto-scroll ON</span></h2>
+			  <span class="tiny" id="channelCount">0 channels</span>
+			</div>
+			<div class="search-filter-container">
+			  <div class="search-box">
+				<input type="text" id="searchInput" placeholder="Search channels...">
+			  </div>
+			  <div class="filter-buttons">
+				<button class="filter-btn active" data-filter="all">All</button>
+				<button class="filter-btn" data-filter="active">Active</button>
+				<button class="filter-btn" data-filter="done">Done</button>
+				<button class="filter-btn" data-filter="error">Errors</button>
+			  </div>
+			</div>
+			<div class="card-body" style="padding: 0;">
+			  <div id="channelsContainer" style="padding: 24px; overflow-y: auto; flex-grow: 1;">
+				<!-- Skeleton Loading -->
+				<div class="skeleton skeleton-channel"></div>
+				<div class="skeleton skeleton-channel"></div>
+				<div class="skeleton skeleton-channel"></div>
+			  </div>
+			</div>
+		  </main>
+		  
+		  <aside class="card">
+			<div class="dashboard-toggle" id="dashboardToggle" title="Toggle dashboard">◀</div>
+			<div class="card-header"><h2 class="card-title">Dashboard</h2></div>
+			<div class="card-body">
+			  <div class="stats-grid">
+				<!-- Channel Stats -->
+				<div class="stats-section">
+				  <div class="stats-section-title">📊 Channels</div>
+				  <div class="stats-item"><div class="label">Total</div><div class="value" id="totalChannels">0</div></div>
+				  <div class="stats-item"><div class="label">Completed</div><div class="value green" id="channelsProcessed">0</div></div>
+				  <div class="stats-item"><div class="label">Time Spent</div><div class="value" id="timeSpent">00:00:00</div></div>
+				</div>
+				
+				<!-- Video Stats -->
+				<div class="stats-section">
+				  <div class="stats-section-title">🎬 Videos</div>
+				  <div class="stats-item"><div class="label">Listed</div><div class="value blue" id="totalVideosListed">0</div></div>
+				  <div class="stats-item"><div class="label">Processed</div><div class="value green" id="totalVideosProcessed">0</div></div>
+				  <div class="stats-item"><div class="label">Remaining</div><div class="value blue" id="totalVideosRemaining">0</div></div>
+				</div>
+				
+				<!-- Performance Stats -->
+				<div class="stats-section">
+				  <div class="stats-section-title">⚡ Performance</div>
+				  <div class="stats-item"><div class="label">Errors</div><div class="value red" id="totalErrors">0</div></div>
+				  <div class="stats-item"><div class="label">Avg. Time</div><div class="value" id="avgTimePerVideo">0.0s (0/hr)</div></div>
+				  <div class="stats-item"><div class="label">ETA</div><div class="value" id="totalEta">N/A</div></div>
+				</div>
+			  </div>
+			  
+			  <div class="progress-section">
+				  <div class="progress-item">
+					  <div class="progress-label"><span>Listing Progress</span><span id="listingProgressText">0 / 0 Channels</span></div>
+					  <div class="progressbar">
+						<span class="progressbar-label" id="listingProgressLabel">0%</span>
+						<i id="listingProgressBar" style="background: linear-gradient(90deg, var(--info), var(--info));"></i>
+					  </div>
+				  </div>
+				  <div class="progress-item">
+					  <div class="progress-label"><span>Download Progress</span><span id="downloadingProgressText">0%</span></div>
+					  <div class="progressbar">
+						<span class="progressbar-label" id="downloadingProgressLabel">0%</span>
+						<i id="downloadingProgressBar"></i>
+					  </div>
+				  </div>
+			  </div>
+			  
+			  <div class="card-header" style="padding: 0 0 16px 0; border: none;">
+				<h2 class="card-title">⏱️ Processing Time (Last 10 Videos)</h2>
+			  </div>
+			  <div class="chart-container" id="chartContainer" title="Click to view video details">
+				<div class="skeleton skeleton-chart"></div>
+				<canvas id="timeChart"></canvas>
+			  </div>
+			</div>
+		  </aside>
+		</div>
+	  </div>
+
+	  <!-- Status Details Modal -->
+	  <div class="modal-overlay" id="statusModal">
+		<div class="modal">
+		  <div class="modal-header">
+			<h3 class="modal-title">System Status Details</h3>
+			<button class="modal-close" id="closeStatusModal">×</button>
+		  </div>
+		  <div class="modal-body">
+			<div class="modal-info-grid">
+			  <div class="modal-info-item">
+				<span class="modal-info-label">Current Phase</span>
+				<span class="modal-info-value" id="modalCurrentPhase">—</span>
+			  </div>
+			  <div class="modal-info-item">
+				<span class="modal-info-label">Running Status</span>
+				<span class="modal-info-value" id="modalRunningStatus">—</span>
+			  </div>
+			  <div class="modal-info-item">
+				<span class="modal-info-label">Time Elapsed</span>
+				<span class="modal-info-value" id="modalTimeSpent">00:00:00</span>
+			  </div>
+			  <div class="modal-info-item">
+				<span class="modal-info-label">Listing Progress</span>
+				<span class="modal-info-value" id="modalListingProgress">0%</span>
+			  </div>
+			  <div class="modal-info-item">
+				<span class="modal-info-label">Download Progress</span>
+				<span class="modal-info-value" id="modalDownloadProgress">0%</span>
+			  </div>
+			  <div class="modal-info-item">
+				<span class="modal-info-label">Total Videos to Process</span>
+				<span class="modal-info-value" id="modalTotalVideos">0</span>
+			  </div>
+			</div>
+		  </div>
+		</div>
+	  </div>
+
+	  <!-- Chart Details Modal -->
+	  <div class="modal-overlay" id="chartModal">
+		<div class="modal">
+		  <div class="modal-header">
+			<h3 class="modal-title">Recent Video Processing Details</h3>
+			<button class="modal-close" id="closeChartModal">×</button>
+		  </div>
+		  <div class="modal-body">
+			<div id="chartModalContent" class="modal-info-grid">
+			  <!-- Populated dynamically -->
+			</div>
+		  </div>
+		</div>
+	  </div>
+
+	  <!-- Toast Notifications Container -->
+	  <div class="toast-container" id="toastContainer"></div>
+
+	  <!-- Channel Tooltip -->
+	  <div class="channel-tooltip" id="channelTooltip">
+		<div class="tooltip-row">
+		  <span class="tooltip-label">Last Listed:</span>
+		  <span class="tooltip-value" id="tooltipLastListed">—</span>
+		</div>
+		<div class="tooltip-row">
+		  <span class="tooltip-label">Videos:</span>
+		  <span class="tooltip-value" id="tooltipVideos">—</span>
+		</div>
+		<div class="tooltip-row">
+		  <span class="tooltip-label">Progress:</span>
+		  <span class="tooltip-value" id="tooltipProgress">—</span>
+		</div>
+	  </div>
+
+	<script>
+		const elements = {
+			overallStatus: document.getElementById('overallStatus'),
+			startBtn: document.getElementById('startBtn'),
+			stopBtn: document.getElementById('stopBtn'),
+			refreshBtn: document.getElementById('refreshBtn'),
+			totalEta: document.getElementById('totalEta'),
+			avgTimePerVideo: document.getElementById('avgTimePerVideo'),
+			timeSpent: document.getElementById('timeSpent'),
+			listingProgressText: document.getElementById('listingProgressText'),
+			listingProgressBar: document.getElementById('listingProgressBar'),
+			listingProgressLabel: document.getElementById('listingProgressLabel'),
+			downloadingProgressText: document.getElementById('downloadingProgressText'),
+			downloadingProgressBar: document.getElementById('downloadingProgressBar'),
+			downloadingProgressLabel: document.getElementById('downloadingProgressLabel'),
+			chartCanvas: document.getElementById('timeChart'),
+			chartContainer: document.getElementById('chartContainer'),
+			channelsContainer: document.getElementById('channelsContainer'),
+			searchInput: document.getElementById('searchInput'),
+			channelCount: document.getElementById('channelCount'),
+			autoScrollStatus: document.getElementById('autoScrollStatus'),
+			statusModal: document.getElementById('statusModal'),
+			closeStatusModal: document.getElementById('closeStatusModal'),
+			chartModal: document.getElementById('chartModal'),
+			closeChartModal: document.getElementById('closeChartModal'),
+			totalChannels: document.getElementById('totalChannels'),
+			channelsProcessed: document.getElementById('channelsProcessed'),
+			totalVideosToProcess: document.getElementById('totalVideosToProcess'),
+			totalVideosProcessed: document.getElementById('totalVideosProcessed'),
+			totalVideosRemaining: document.getElementById('totalVideosRemaining'),
+			totalErrors: document.getElementById('totalErrors'),
+			totalVideosListed: document.getElementById('totalVideosListed'),
+			dashboardToggle: document.getElementById('dashboardToggle'),
+			toastContainer: document.getElementById('toastContainer'),
+			channelTooltip: document.getElementById('channelTooltip')
+		};
+		
+		let timeChart;
+		let currentFilter = 'all';
+		let searchTerm = '';
+		let allChannels = [];
+		let lastVideoData = [];
+		let isRunning = false;
+		let pollInterval = 3000; // Start with 3s polling for idle state
+		let pollTimeout;
+
+		const sampleData = {
+			running: false, overall_status: "Idle", current_phase: "Idle", listing_progress: 0, downloading_progress: 0,
+			total_videos_to_process: 0, total_videos_processed: 0, total_videos_remaining: 0, total_errors: 0, average_time_per_video: 0,
+			total_eta_seconds: 0, elapsed_seconds: 0, total_channels: 0, channels_processed: 0, channels_listed: 0, total_videos_listed: 0,
+			last_10_videos: [], channels: []
+		};
+
+		const formatEta = s => s > 0 ? new Date(s * 1000).toISOString().substr(11, 8) : '00:00:00';
+		const toSnakeCase = str => str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+
+		// Previous values for trend tracking
+		let previousValues = {};
+		let downloadRateTracker = { startTime: null, startCount: 0 };
+		let isFirstRender = true; // Track first render to avoid showing stale toasts
+
+		// Toast Notifications
+		function showToast(title, message, type = 'info') {
+		  const toast = document.createElement('div');
+		  toast.className = `toast ${type}`;
+
+		  const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
+
+		  toast.innerHTML = `
+			<div class="toast-icon">${icon}</div>
+			<div class="toast-content">
+			  <div class="toast-title">${title}</div>
+			  <div class="toast-message">${message}</div>
+			</div>
+		  `;
+
+		  elements.toastContainer.appendChild(toast);
+
+		  setTimeout(() => {
+			toast.classList.add('hiding');
+			setTimeout(() => toast.remove(), 300);
+		  }, 4000);
+		}
+
+		// Animated Counter
+		function animateCounter(element, targetValue, duration = 500) {
+		  const startValue = parseInt(element.textContent) || 0;
+		  const diff = targetValue - startValue;
+		  if (diff === 0) return;
+
+		  element.classList.add('counting');
+		  const startTime = performance.now();
+
+		  function update(currentTime) {
+			const elapsed = currentTime - startTime;
+			const progress = Math.min(elapsed / duration, 1);
+
+			const easeOutQuad = t => t * (2 - t);
+			const currentValue = Math.round(startValue + diff * easeOutQuad(progress));
+
+			element.textContent = currentValue;
+
+			if (progress < 1) {
+			  requestAnimationFrame(update);
+			} else {
+			  element.classList.remove('counting');
+			}
+		  }
+
+		  requestAnimationFrame(update);
+		}
+
+		// Trend Indicator
+		function updateTrendIndicator(elementId, newValue) {
+		  const element = document.getElementById(elementId);
+		  if (!element) return;
+
+		  const oldValue = previousValues[elementId] || newValue;
+		  previousValues[elementId] = newValue;
+
+		  // Remove existing trend indicator
+		  const existing = element.querySelector('.trend-indicator');
+		  if (existing) existing.remove();
+
+		  if (oldValue !== newValue) {
+			const trend = document.createElement('span');
+			trend.className = `trend-indicator ${newValue > oldValue ? 'trend-up' : 'trend-down'}`;
+			trend.textContent = newValue > oldValue ? '↑' : '↓';
+			element.appendChild(trend);
+
+			setTimeout(() => trend.remove(), 2000);
+		  }
+		}
+
+		// Calculate Download Rate
+		function calculateDownloadRate(totalProcessed) {
+		  if (!downloadRateTracker.startTime) {
+			downloadRateTracker.startTime = Date.now();
+			downloadRateTracker.startCount = totalProcessed;
+			return 0;
+		  }
+
+		  const elapsed = (Date.now() - downloadRateTracker.startTime) / 1000 / 3600; // hours
+		  const processed = totalProcessed - downloadRateTracker.startCount;
+
+		  return elapsed > 0 ? Math.round(processed / elapsed) : 0;
+		}
+
+		// Dashboard Toggle
+		elements.dashboardToggle.addEventListener('click', () => {
+		  const grid = document.querySelector('.main-grid');
+		  grid.classList.toggle('dashboard-collapsed');
+		  elements.dashboardToggle.textContent = grid.classList.contains('dashboard-collapsed') ? '▶' : '◀';
+		});
+
+		// Density Toggle
+		document.querySelectorAll('.density-btn').forEach(btn => {
+		  btn.addEventListener('click', () => {
+			document.querySelectorAll('.density-btn').forEach(b => b.classList.remove('active'));
+			btn.classList.add('active');
+
+			document.body.classList.remove('compact', 'comfortable', 'cozy');
+			const density = btn.dataset.density;
+			if (density !== 'comfortable') {
+			  document.body.classList.add(density);
+			}
+		  });
+		});
+
+		// Channel Tooltip
+		let tooltipTimeout;
+		function showChannelTooltip(channel, event) {
+		  clearTimeout(tooltipTimeout);
+
+		  const tooltip = elements.channelTooltip;
+		  const lastListed = channel.last_listed ? new Date(channel.last_listed).toLocaleDateString() : 'Never';
+		  const videoCount = channel.videos?.length || 0;
+		  const progress = channel.progress || 0;
+
+		  document.getElementById('tooltipLastListed').textContent = lastListed;
+		  document.getElementById('tooltipVideos').textContent = videoCount;
+		  document.getElementById('tooltipProgress').textContent = `${progress}%`;
+
+		  tooltip.style.left = `${event.pageX + 10}px`;
+		  tooltip.style.top = `${event.pageY + 10}px`;
+		  tooltip.classList.add('show');
+		}
+
+		function hideChannelTooltip() {
+		  tooltipTimeout = setTimeout(() => {
+			elements.channelTooltip.classList.remove('show');
+		  }, 100);
+		}
+
+		function initChart() {
+		  if (timeChart) timeChart.destroy();
+		  
+		  // Hide skeleton, show canvas
+		  const skeleton = elements.chartContainer.querySelector('.skeleton');
+		  if (skeleton) skeleton.style.display = 'none';
+		  elements.chartCanvas.style.display = 'block';
+		  
+		  timeChart = new Chart(elements.chartCanvas.getContext('2d'), {
+			type: 'line',
+			data: { 
+			  labels: [], 
+			  datasets: [
+				{
+				  label: 'Processing Time',
+				  data: [], 
+				  backgroundColor: 'rgba(59, 130, 246, 0.1)', 
+				  borderColor: 'rgba(59, 130, 246, 0.8)', 
+				  borderWidth: 2, 
+				  tension: 0.4, 
+				  fill: true, 
+				  pointRadius: 4,
+				  pointHoverRadius: 6,
+				  pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+				  pointBorderColor: '#fff',
+				  pointBorderWidth: 2,
+				},
+				{
+				  label: 'Average',
+				  data: [],
+				  borderColor: 'rgba(234, 179, 8, 0.8)',
+				  borderWidth: 2,
+				  borderDash: [5, 5],
+				  pointRadius: 0,
+				  fill: false,
+				  tension: 0
+				}
+			  ] 
+			},
+			options: { 
+			  responsive: true, 
+			  maintainAspectRatio: false,
+			  interaction: {
+				mode: 'index',
+				intersect: false,
+			  },
+			  plugins: {
+				tooltip: {
+				  backgroundColor: '#1a1a1a',
+				  titleColor: '#ffffff',
+				  bodyColor: '#a3a3a3',
+				  borderColor: '#262626',
+				  borderWidth: 1,
+				  padding: 12,
+				  displayColors: true,
+				  callbacks: {
+					title: function(context) {
+					  return 'Video: ' + context[0].label;
+					},
+					label: function(context) {
+					  if (context.datasetIndex === 0) {
+						return 'Time: ' + context.parsed.y.toFixed(1) + 's';
+					  } else {
+						return 'Average: ' + context.parsed.y.toFixed(1) + 's';
+					  }
+					},
+					afterBody: function(context) {
+					  const videoIndex = context[0].dataIndex;
+					  const video = lastVideoData[videoIndex];
+					  if (video) {
+						return [
+						  '',
+						  'Channel: ' + (video.channel || 'Unknown'),
+						  'Status: ' + (video.status || 'Unknown')
+						];
+					  }
+					  return [];
+					}
+				  }
+				},
+				legend: {
+				  display: true,
+				  labels: {
+					color: '#888888',
+					font: { size: 11 },
+					usePointStyle: true,
+					padding: 15
+				  }
+				}
+			  }, 
+			  scales: { 
+				y: { 
+				  beginAtZero: true, 
+				  grid: { 
+					color: '#262626',  // Visible grid lines
+					drawBorder: false
+				  },
+				  border: {
+					display: false
+				  },
+				  ticks: { 
+					color: '#888888',  // Light gray for ticks
+					font: { size: 10 },
+					callback: function(value) {
+					  return value.toFixed(1) + 's';
+					}
+				  },
+				  title: {
+					display: true,
+					text: 'Time (seconds)',
+					color: '#888888',  // Light gray
+					font: { size: 11 }
+				  }
+				}, 
+				x: { 
+				  grid: { 
+					color: 'transparent',
+					drawBorder: false
+				  },
+				  border: {
+					display: false
+				  },
+				  ticks: {
+					color: '#888888',  // Light gray for ticks
+					font: { size: 10 },
+					maxRotation: 45,
+					minRotation: 0
+				  },
+				  title: {
+					display: true,
+					text: 'Recent Videos',
+					color: '#888888',  // Light gray
+					font: { size: 11 }
+				  }
+				} 
+			  },
+			  onClick: (event, elements) => {
+				if (lastVideoData.length > 0) {
+				  showChartDetailsModal();
+				}
+			  }
+			}
+		  });
+		}
+
+		function updateChart(lastVideos = []) {
+			if (!timeChart) return;
+			
+			lastVideoData = lastVideos;
+			const times = lastVideos.map(v => v.time_taken || 0);
+			const avgTime = times.length > 0 ? times.reduce((a, b) => a + b, 0) / times.length : 0;
+			
+			// Create labels with video titles (shortened)
+			timeChart.data.labels = lastVideos.map((v, i) => {
+			  const title = v.title || `Video ${i + 1}`;
+			  return title.length > 20 ? title.substring(0, 20) + '...' : title;
+			});
+			
+			timeChart.data.datasets[0].data = times;
+			timeChart.data.datasets[1].data = times.map(() => avgTime); // Average line
+			timeChart.update('none');
+		}
+		
+		function render(data) {
+			// Update running state and adjust polling
+			const wasRunning = isRunning;
+			isRunning = data.running;
+			
+			if (isRunning && !wasRunning) {
+			  // Just started running - speed up polling for real-time updates
+			  pollInterval = 500;
+			} else if (!isRunning && wasRunning) {
+			  // Just stopped - slow down polling
+			  pollInterval = 3000;
+			}
+			
+			// Enhanced status with channel serial number
+			let statusText = data.overall_status;
+			if (data.running && data.channels) {
+				// Find the currently processing channel
+				const activeChannelIndex = data.channels.findIndex(ch =>
+					ch.status === 'Listing' || ch.status === 'Downloading'
+				);
+
+				if (activeChannelIndex !== -1) {
+					const channelNum = activeChannelIndex + 1;
+					const totalChannels = data.channels.length;
+
+					// If status doesn't already include the channel number, prepend it
+					if (!statusText.match(/^\[\d+\/\d+\]/)) {
+						statusText = `[${channelNum}/${totalChannels}] ${statusText}`;
+					}
+				}
+			}
+
+			elements.overallStatus.textContent = statusText;
+			elements.overallStatus.classList.toggle('is-running', data.running);
+			elements.totalEta.textContent = formatEta(data.total_eta_seconds);
+
+			// Calculate and display average time with download rate
+			const avgTime = (data.average_time_per_video || 0).toFixed(1);
+			const avgTimeSeconds = data.average_time_per_video || 0;
+			const rate = avgTimeSeconds > 0 ? Math.round(3600 / avgTimeSeconds) : 0;
+			elements.avgTimePerVideo.textContent = `${avgTime}s (${rate}/hr)`;
+
+			elements.timeSpent.textContent = formatEta(data.elapsed_seconds || 0);
+			elements.startBtn.disabled = data.running;
+			elements.stopBtn.disabled = !data.running;
+
+			// Update stats with animation and trend indicators
+			['totalChannels', 'channelsProcessed', 'totalVideosToProcess', 'totalVideosProcessed', 'totalVideosRemaining', 'totalErrors', 'totalVideosListed'].forEach(key => {
+				const snakeCaseKey = toSnakeCase(key);
+				if (elements[key] && data[snakeCaseKey] !== undefined) {
+					const newValue = data[snakeCaseKey];
+					const element = elements[key];
+
+					// Use animated counter for numeric values
+					if (typeof newValue === 'number') {
+						animateCounter(element, newValue);
+						updateTrendIndicator(key, newValue);
+					} else {
+						element.textContent = newValue;
+					}
+				}
+			});
+
+			const listingProg = Math.round(data.listing_progress || 0);
+			elements.listingProgressText.textContent = `${data.channels_listed || 0} / ${data.total_channels || 0} Channels`;
+			elements.listingProgressBar.style.width = `${listingProg}%`;
+			elements.listingProgressLabel.textContent = `${listingProg}%`;
+			
+			const downloadingProg = Math.round(data.downloading_progress || 0);
+			elements.downloadingProgressText.textContent = `${downloadingProg}%`;
+			elements.downloadingProgressBar.style.width = `${downloadingProg}%`;
+			elements.downloadingProgressLabel.textContent = `${downloadingProg}%`;
+
+			updateChart(data.last_10_videos || []);
+			
+			// Show toast notifications for completed channels (but not on first load)
+			const currentChannelsDone = data.channels?.filter(ch => ch.status === 'Done').length || 0;
+			const prevChannelsDone = previousValues.channelsDone || 0;
+
+			if (!isFirstRender && currentChannelsDone > prevChannelsDone) {
+				const newlyDone = data.channels?.filter(ch => ch.status === 'Done').slice(prevChannelsDone);
+				newlyDone?.forEach(ch => {
+					const videoCount = ch.videos?.length || 0;
+					showToast('Channel Completed', `${ch.name} (${videoCount} videos)`, 'success');
+				});
+			}
+			previousValues.channelsDone = currentChannelsDone;
+
+			// Show toast when all downloads are finished (but not on first load)
+			if (!isFirstRender && !data.running && wasRunning && data.channels_processed === data.total_channels && data.total_channels > 0) {
+				showToast('All Downloads Complete!', `Processed ${data.total_videos_processed} videos across ${data.total_channels} channels`, 'success');
+			}
+
+			// Mark first render as complete
+			if (isFirstRender) {
+				isFirstRender = false;
+			}
+
+			allChannels = data.channels || [];
+
+			renderChannels();
+		}
+		
+		// Cache to track previous render state and prevent unnecessary updates
+		let previousRenderState = new Map();
+		let currentlyExpandedChannel = null; // Track which channel is currently expanded
+		let lastProcessingChannel = null; // Track last processing channel for scroll detection
+		
+		function renderChannels() {
+			const filtered = allChannels.filter(ch => {
+				const matchesSearch = !searchTerm || ch.name.toLowerCase().includes(searchTerm.toLowerCase());
+				const matchesFilter = currentFilter === 'all' || 
+									  (currentFilter === 'active' && (ch.status === 'Downloading' || ch.status === 'Listing')) ||
+									  (currentFilter === 'done' && (ch.status === 'Done' || ch.status === 'Downloaded')) ||
+									  (currentFilter === 'error' && ch.status === 'Error');
+				return matchesSearch && matchesFilter;
+			});
+			
+			elements.channelCount.textContent = `${filtered.length} channel${filtered.length !== 1 ? 's' : ''}`;
+			
+			if (filtered.length === 0) {
+				if (!elements.channelsContainer.querySelector('.empty-state')) {
+					elements.channelsContainer.innerHTML = `
+						<div class="empty-state">
+							<div class="empty-state-icon">📭</div>
+							<div class="empty-state-text">No channels found matching your criteria</div>
+						</div>
+					`;
+				}
+				currentlyExpandedChannel = null;
+				lastProcessingChannel = null;
+				return;
+			}
+			
+			// Get existing channels in DOM - use actual DOM order
+			const existingChannelElements = Array.from(elements.channelsContainer.querySelectorAll('.channel'));
+			const existingChannelMap = new Map();
+			existingChannelElements.forEach(el => {
+				existingChannelMap.set(el.dataset.url, el);
+			});
+			
+			// Track which URLs are in the new filtered list
+			const filteredUrls = new Set(filtered.map(ch => ch.url));
+			
+			// Remove channels that are no longer in filtered list
+			existingChannelElements.forEach(el => {
+				if (!filteredUrls.has(el.dataset.url)) {
+					el.remove();
+					previousRenderState.delete(el.dataset.url);
+					if (currentlyExpandedChannel === el.dataset.url) {
+						currentlyExpandedChannel = null;
+					}
+				}
+			});
+			
+			// Find the currently processing channel
+			let processingChannel = filtered.find(ch => 
+				ch.status === 'Downloading' || ch.status === 'Listing'
+			);
+			
+			// Track if processing channel changed
+			const processingChannelChanged = processingChannel && 
+											processingChannel.url !== lastProcessingChannel;
+			
+			// Auto-expand only the processing channel, collapse all others
+			if (processingChannel) {
+				currentlyExpandedChannel = processingChannel.url;
+				lastProcessingChannel = processingChannel.url;
+			} else if (!currentlyExpandedChannel) {
+				// If no processing channel and nothing manually expanded, collapse all
+				currentlyExpandedChannel = null;
+			}
+			
+			// Process each filtered channel
+			filtered.forEach((ch, idx) => {
+				const isProcessing = ch.status === 'Downloading' || ch.status === 'Listing';
+				const isDone = ch.status === 'Done' || ch.status === 'Downloaded';
+				const isError = ch.status === 'Error';
+
+				// Calculate serial number from original allChannels array
+				const serialNumber = allChannels.findIndex(c => c.url === ch.url) + 1;
+
+				// Only expand if this is the currently expanded channel
+				const isExpanded = currentlyExpandedChannel === ch.url;
+
+				let channelEl = existingChannelMap.get(ch.url);
+
+				if (channelEl) {
+					// Update existing channel element in place
+					updateChannelElement(channelEl, ch, isExpanded, isProcessing, isDone, isError, serialNumber);
+
+					// Ensure correct position in DOM
+					const currentPosition = Array.from(elements.channelsContainer.children).indexOf(channelEl);
+					if (currentPosition !== idx) {
+						// Reposition without causing reflow
+						const referenceNode = elements.channelsContainer.children[idx];
+						if (referenceNode && referenceNode !== channelEl) {
+							elements.channelsContainer.insertBefore(channelEl, referenceNode);
+						} else if (!referenceNode) {
+							elements.channelsContainer.appendChild(channelEl);
+						}
+					}
+				} else {
+					// Create new channel element
+					channelEl = createChannelElement(ch, isExpanded, isProcessing, isDone, isError, serialNumber);
+
+					// Insert at correct position
+					const referenceNode = elements.channelsContainer.children[idx];
+					if (referenceNode) {
+						elements.channelsContainer.insertBefore(channelEl, referenceNode);
+					} else {
+						elements.channelsContainer.appendChild(channelEl);
+					}
+				}
+			});
+
+			// Auto-scroll to processing channel if it changed or just started
+			if (processingChannel && processingChannelChanged) {
+				scrollToProcessingChannel(processingChannel.url);
+			}
+		}
+		
+		function createChannelElement(ch, isExpanded, isProcessing, isDone, isError, serialNumber) {
+			const div = document.createElement('div');
+			div.className = `channel ${isError ? 'status-error' : (isDone ? 'status-done' : (isProcessing ? 'is-processing' : ''))} ${isExpanded ? 'expanded' : 'collapsed'}`;
+			div.dataset.url = ch.url;
+			div.style.animationDelay = `${serialNumber * 0.05}s`;
+
+			// Create header
+			const header = document.createElement('header');
+			header.className = 'channel-header';
+			header.innerHTML = `
+				<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+					<span class="caret">▸</span>
+					<span class="channel-serial" style="color:var(--muted);font-size:13px;font-weight:500;min-width:32px;">#${serialNumber}</span>
+					<h3 title="${ch.name}">${ch.name}</h3>
+				</div>
+				<div class="tiny" style="display:flex;align-items:center;gap:12px;">
+					<span class="channel-counts" style="color:var(--text-secondary);font-size:12px;white-space:nowrap;"></span>
+					<span class="channel-errors-badge" style="color:var(--error);font-size:12px;font-weight:500;display:none;"></span>
+					<span class="channel-status" style="gap:6px;display:inline-flex;align-items:center;"></span>
+					<span class="channel-progress" style="min-width:45px;text-align:right;font-weight:600;"></span>
+				</div>
+			`;
+			
+			// Create body
+			const body = document.createElement('div');
+			body.className = 'channel-body';
+			body.innerHTML = `
+				<div class="channel-info-grid">
+					<div class="info-item"><div class="label">Total</div><div class="value channel-total">0</div></div>
+					<div class="info-item"><div class="label">Processed</div><div class="value green channel-processed">0</div></div>
+					<div class="info-item"><div class="label">Remaining</div><div class="value blue channel-remaining">0</div></div>
+					<div class="info-item"><div class="label">Errors</div><div class="value red channel-errors">0</div></div>
+					<div class="info-item"><div class="label">ETA</div><div class="value channel-eta">00:00:00</div></div>
+				</div>
+				<div class="channel-videos-container"></div>
+			`;
+			
+			// Add mini progress bar
+			const miniProgress = document.createElement('div');
+			miniProgress.className = 'channel-mini-progress';
+			miniProgress.innerHTML = '<div class="channel-mini-progress-bar"></div>';
+
+			div.appendChild(header);
+			div.appendChild(body);
+			div.appendChild(miniProgress);
+
+			// Add tooltip listeners
+			header.addEventListener('mouseenter', (e) => showChannelTooltip(ch, e));
+			header.addEventListener('mousemove', (e) => showChannelTooltip(ch, e));
+			header.addEventListener('mouseleave', hideChannelTooltip);
+
+			// Store initial state
+			previousRenderState.set(ch.url, {
+				status: '',
+				progress: -1,
+				video_total_count: -1,
+				video_progress_count: -1,
+				video_remaining_count: -1,
+				video_error_count: -1,
+				eta_seconds: -1,
+				videos_hash: ''
+			});
+			
+			// Initial update
+			updateChannelElement(div, ch, isExpanded, isProcessing, isDone, isError, serialNumber);
+
+			return div;
+		}
+
+		function updateChannelElement(channelEl, ch, isExpanded, isProcessing, isDone, isError, serialNumber) {
+			const prevState = previousRenderState.get(ch.url) || {};
+			
+			// Update classes only if changed
+			const newClassName = `channel ${isError ? 'status-error' : (isDone ? 'status-done' : (isProcessing ? 'is-processing' : ''))} ${isExpanded ? 'expanded' : 'collapsed'}`;
+			if (channelEl.className !== newClassName) {
+				channelEl.className = newClassName;
+			}
+			
+			// Update status badge only if status changed
+			if (prevState.status !== ch.status) {
+				const statusEl = channelEl.querySelector('.channel-status');
+				if (statusEl) {
+					const spinner = isProcessing ? '<span class="spinner"></span>' : '';
+					const statusClass = `status-${(ch.status||'').replace(/\s+/g,'-').toLowerCase()}`;
+					statusEl.className = `channel-status ${statusClass}`;
+					statusEl.innerHTML = `${spinner}${ch.status || '—'}`;
+				}
+				prevState.status = ch.status;
+			}
+			
+			// Update counts display (processed/total)
+			const countsChanged = prevState.video_progress_count !== ch.video_progress_count || 
+								 prevState.video_total_count !== ch.video_total_count;
+			
+			if (countsChanged) {
+				const countsEl = channelEl.querySelector('.channel-counts');
+				if (countsEl) {
+					const processed = ch.video_progress_count || 0;
+					const total = ch.video_total_count || 0;
+					const countsText = total > 0 ? `${processed}/${total}` : '—';
+					countsEl.textContent = countsText;
+				}
+			}
+			
+			// Update progress only if changed
+			if (prevState.progress !== ch.progress) {
+				const progressEl = channelEl.querySelector('.channel-progress');
+				if (progressEl) {
+					progressEl.textContent = `${ch.progress || 0}%`;
+				}
+
+				// Update mini progress bar
+				const miniProgressBar = channelEl.querySelector('.channel-mini-progress-bar');
+				if (miniProgressBar) {
+					miniProgressBar.style.width = `${ch.progress || 0}%`;
+				}
+
+				prevState.progress = ch.progress;
+			}
+			
+			// Update counts only if changed
+			if (prevState.video_total_count !== ch.video_total_count) {
+				const totalEl = channelEl.querySelector('.channel-total');
+				if (totalEl) {
+					totalEl.textContent = ch.video_total_count || 0;
+				}
+				prevState.video_total_count = ch.video_total_count;
+			}
+			
+			if (prevState.video_progress_count !== ch.video_progress_count) {
+				const processedEl = channelEl.querySelector('.channel-processed');
+				if (processedEl) {
+					processedEl.textContent = ch.video_progress_count || 0;
+				}
+				prevState.video_progress_count = ch.video_progress_count;
+			}
+			
+			if (prevState.video_remaining_count !== ch.video_remaining_count) {
+				const remainingEl = channelEl.querySelector('.channel-remaining');
+				if (remainingEl) {
+					remainingEl.textContent = ch.video_remaining_count || 0;
+				}
+				prevState.video_remaining_count = ch.video_remaining_count;
+			}
+			
+			if (prevState.video_error_count !== ch.video_error_count) {
+				const errorsEl = channelEl.querySelector('.channel-errors');
+				if (errorsEl) {
+					errorsEl.textContent = ch.video_error_count || 0;
+				}
+
+				// Update error badge in header
+				const errorsBadge = channelEl.querySelector('.channel-errors-badge');
+				if (errorsBadge) {
+					const errorCount = ch.video_error_count || 0;
+					if (errorCount > 0) {
+						errorsBadge.textContent = `⚠ ${errorCount} error${errorCount > 1 ? 's' : ''}`;
+						errorsBadge.style.display = 'inline';
+					} else {
+						errorsBadge.style.display = 'none';
+					}
+				}
+
+				prevState.video_error_count = ch.video_error_count;
+			}
+			
+			if (prevState.eta_seconds !== ch.eta_seconds) {
+				const etaEl = channelEl.querySelector('.channel-eta');
+				if (etaEl) {
+					etaEl.textContent = formatEta(ch.eta_seconds);
+				}
+				prevState.eta_seconds = ch.eta_seconds;
+			}
+
+			// Lazy loading: Only update videos table when expanded
+			if (isExpanded) {
+				const videosHash = hashVideos(ch.videos);
+				if (prevState.videos_hash !== videosHash) {
+					updateVideosTable(channelEl, ch.videos);
+					prevState.videos_hash = videosHash;
+				}
+			} else {
+				// Clear videos table when collapsed to save memory
+				const container = channelEl.querySelector('.channel-videos-container');
+				if (container && container.innerHTML) {
+					container.innerHTML = '';
+					prevState.videos_hash = '';
+				}
+			}
+
+			// Store updated state
+			previousRenderState.set(ch.url, prevState);
+		}
+
+		function scrollToProcessingChannel(channelUrl) {
+			// Don't scroll if user manually scrolled channelsContainer recently
+			if (elements.channelsContainer._userScrolledRecently) {
+				return;
+			}
+
+			const channelEl = elements.channelsContainer.querySelector(`[data-url="${channelUrl}"]`);
+			if (!channelEl) return;
+
+			const searchFilterContainer = document.querySelector('.search-filter-container');
+			if (!searchFilterContainer) return;
+
+			// Calculate positions
+			const containerTop = elements.channelsContainer.getBoundingClientRect().top;
+			const searchFilterBottom = searchFilterContainer.getBoundingClientRect().bottom;
+			const channelHeaderTop = channelEl.querySelector('.channel-header').getBoundingClientRect().top;
+
+			// Calculate how much to scroll to position channel header just below search-filter
+			const targetPosition = searchFilterBottom - containerTop;
+			const currentChannelPosition = channelHeaderTop - containerTop;
+			const scrollAdjustment = currentChannelPosition - targetPosition;
+
+			if (Math.abs(scrollAdjustment) > 5) { // Only scroll if more than 5px off
+				// Mark as auto-scrolling to prevent triggering user scroll detection
+				elements.channelsContainer._isAutoScrolling = true;
+
+				elements.channelsContainer.scrollBy({
+					top: scrollAdjustment,
+					behavior: 'smooth'
+				});
+
+				// Clear flag after scroll completes
+				setTimeout(() => {
+					elements.channelsContainer._isAutoScrolling = false;
+				}, 500);
+			}
+		}
+		
+		function hashVideos(videos) {
+			if (!videos || videos.length === 0) return '';
+			// Create a hash of video states for change detection
+			return videos.map(v => `${v.id}:${v.status}:${v.attempts}`).join('|');
+		}
+		
+		// Virtual scrolling configuration
+		const VIRTUAL_ROW_HEIGHT = 36; // pixels per row
+		const VIRTUAL_BUFFER = 10; // extra rows to render above/below viewport
+
+		function updateVideosTable(channelEl, videos) {
+			const container = channelEl.querySelector('.channel-videos-container');
+			if (!container) return;
+
+			if (!videos || videos.length === 0) {
+				if (container.innerHTML !== '') {
+					container.innerHTML = '';
+				}
+				return;
+			}
+
+			let wrapper = container.querySelector('.channel-table-wrapper');
+			let table, thead, tbody;
+
+			// Create table structure if it doesn't exist
+			if (!wrapper) {
+				wrapper = document.createElement('div');
+				wrapper.className = 'channel-table-wrapper';
+				wrapper.style.maxHeight = '400px';
+				wrapper.style.overflow = 'auto';
+				wrapper.style.position = 'relative';
+
+				table = document.createElement('table');
+				table.style.tableLayout = 'fixed';
+				table.style.width = '100%';
+
+				// Create colgroup for consistent column widths
+				const colgroup = document.createElement('colgroup');
+				colgroup.innerHTML = `
+					<col style="width: 50px">
+					<col style="width: auto">
+					<col style="width: 140px">
+					<col style="width: 80px">
+				`;
+				table.appendChild(colgroup);
+
+				thead = document.createElement('thead');
+				thead.innerHTML = '<tr><th>#</th><th>Title</th><th>Status</th><th>Attempts</th></tr>';
+				thead.style.position = 'sticky';
+				thead.style.top = '0';
+				thead.style.zIndex = '10';
+
+				tbody = document.createElement('tbody');
+				tbody.style.position = 'relative';
+
+				table.appendChild(thead);
+				table.appendChild(tbody);
+				wrapper.appendChild(table);
+				container.innerHTML = '';
+				container.appendChild(wrapper);
+
+				// Setup virtual scrolling
+				setupVirtualScroll(wrapper, tbody, videos, channelEl);
+			} else {
+				table = wrapper.querySelector('table');
+				tbody = table.querySelector('tbody');
+				thead = table.querySelector('thead');
+			}
+
+			// Store current videos in wrapper for access during scroll
+			wrapper._currentVideos = videos;
+
+			// Update virtual scroll
+			renderVisibleRows(wrapper, tbody, videos, channelEl);
+		}
+
+		function updateAutoScrollStatus() {
+			const badge = elements.autoScrollStatus;
+			if (!badge) return;
+
+			// Check if ANY level has user-scrolled recently
+			const channelScrollDisabled = elements.channelsContainer._userScrolledRecently || false;
+
+			// Check if any video table has user-scrolled recently
+			const videoTablesDisabled = Array.from(document.querySelectorAll('.channel-table-wrapper'))
+				.some(wrapper => wrapper._userScrolledRecently);
+
+			const anyDisabled = channelScrollDisabled || videoTablesDisabled;
+
+			if (anyDisabled) {
+				badge.textContent = '⏸ Auto-scroll OFF (10s)';
+				badge.className = 'auto-scroll-badge off';
+			} else {
+				badge.textContent = '🔄 Auto-scroll ON';
+				badge.className = 'auto-scroll-badge on';
+			}
+		}
+
+		function setupVirtualScroll(wrapper, tbody, videos, channelEl) {
+			// Track previous in-progress index for this wrapper
+			wrapper._prevInProgressIndex = -1;
+			wrapper._isAutoScrolling = false;
+			wrapper._userScrolledRecently = false;
+			wrapper._userScrollTimeout = null;
+
+			let scrollTimeout;
+			wrapper.addEventListener('scroll', () => {
+				// Skip scroll-triggered re-render if we're auto-scrolling
+				// (but updateVideosTable can still trigger re-renders for status updates)
+				if (wrapper._isAutoScrolling) {
+					return;
+				}
+
+				// User manually scrolled video table - disable this table's auto-scroll for 10 seconds
+				wrapper._userScrolledRecently = true;
+				updateAutoScrollStatus(); // Update global badge
+
+				clearTimeout(wrapper._userScrollTimeout);
+				wrapper._userScrollTimeout = setTimeout(() => {
+					wrapper._userScrolledRecently = false;
+					wrapper._autoScrollJustReEnabled = true; // Flag to trigger scroll check
+					updateAutoScrollStatus(); // Re-check badge status
+
+					// Trigger a re-render to check if in-progress video needs scrolling
+					const currentVideos = wrapper._currentVideos || videos;
+					if (currentVideos) {
+						renderVisibleRows(wrapper, tbody, currentVideos, channelEl);
+					}
+				}, 10000); // 10 seconds
+
+				clearTimeout(scrollTimeout);
+				scrollTimeout = setTimeout(() => {
+					// FIX: Read directly from wrapper._currentVideos, which is updated by updateVideosTable
+					// The previous code looked at the parent container which didn't have the property
+					const currentVideos = wrapper._currentVideos || videos;
+					renderVisibleRows(wrapper, tbody, currentVideos, channelEl);
+				}, 16); // ~60fps throttle
+			});
+		}
+
+		function renderVisibleRows(wrapper, tbody, videos, channelEl) {
+			if (!videos || videos.length === 0) return;
+
+			const scrollTop = wrapper.scrollTop;
+			const viewportHeight = wrapper.clientHeight;
+
+			// Calculate visible range
+			const startIndex = Math.max(0, Math.floor(scrollTop / VIRTUAL_ROW_HEIGHT) - VIRTUAL_BUFFER);
+			const endIndex = Math.min(videos.length, Math.ceil((scrollTop + viewportHeight) / VIRTUAL_ROW_HEIGHT) + VIRTUAL_BUFFER);
+
+			// Total height for scrollbar
+			const totalHeight = videos.length * VIRTUAL_ROW_HEIGHT;
+
+			// Clear tbody and set height
+			tbody.innerHTML = '';
+			tbody.style.height = `${totalHeight}px`;
+
+			// Create spacer for offset
+			const offsetY = startIndex * VIRTUAL_ROW_HEIGHT;
+
+			// Find in-progress video
+			let inProgressIndex = videos.findIndex(v => v.status === 'in-progress');
+
+			// Render only visible rows
+			for (let i = startIndex; i < endIndex; i++) {
+				const v = videos[i];
+				const row = document.createElement('tr');
+				row.style.position = 'absolute';
+				row.style.top = `${i * VIRTUAL_ROW_HEIGHT}px`;
+				row.style.height = `${VIRTUAL_ROW_HEIGHT}px`;
+				row.style.width = '100%';
+				row.style.display = 'table';
+				row.style.tableLayout = 'fixed';
+
+				const isInProgress = v.status === 'in-progress';
+				if (isInProgress) {
+					row.className = 'in-progress-row';
+				}
+
+				row.innerHTML = `
+					<td class="tiny" style="width: 50px">${i + 1}</td>
+					<td class="video-title" title="${v.title || ''}" style="width: auto">${(v.title || '').slice(0, 70)}</td>
+					<td class="video-status-cell" style="width: 140px">
+						<span class="status-pill status-${(v.status||'').replace(/\s+/g,'-').toLowerCase()}">
+							<span class="spinner" style="visibility: ${v.status === 'in-progress' ? 'visible' : 'hidden'}"></span>${v.status}
+						</span>
+					</td>
+					<td class="tiny video-attempts" style="width: 80px">${v.attempts || 0}</td>
+				`;
+
+				tbody.appendChild(row);
+			}
+
+			// Auto-scroll to in-progress video (minimal scroll to bring into view)
+			if (inProgressIndex !== -1) {
+				// Check if in-progress video changed (new video started processing)
+				const inProgressChanged = wrapper._prevInProgressIndex !== undefined &&
+										 wrapper._prevInProgressIndex !== inProgressIndex;
+
+				// Always update the previous index (even if we don't scroll)
+				// This prevents state issues when user takes manual control
+				wrapper._prevInProgressIndex = inProgressIndex;
+
+				// Check if we should trigger auto-scroll
+				const autoScrollJustReEnabled = wrapper._autoScrollJustReEnabled || false;
+				const shouldCheckScroll = (inProgressChanged || autoScrollJustReEnabled) &&
+										 !wrapper._isAutoScrolling &&
+										 !wrapper._userScrolledRecently;
+
+				// Clear the re-enabled flag after checking
+				if (autoScrollJustReEnabled) {
+					wrapper._autoScrollJustReEnabled = false;
+				}
+
+				// Only scroll if:
+				// 1. In-progress changed (new video) OR auto-scroll just re-enabled
+				// 2. Not already auto-scrolling (prevent recursion)
+				// 3. User hasn't manually scrolled recently (respect user control)
+				if (shouldCheckScroll) {
+					// Use wrapper's actual visible height (not current scroll viewport)
+					const wrapperVisibleHeight = wrapper.clientHeight;
+					const scrollTop = wrapper.scrollTop;
+
+					// Calculate position to show in-progress video + 4 extra videos
+					const targetIndex = Math.min(inProgressIndex + 4, videos.length - 1);
+					const targetY = targetIndex * VIRTUAL_ROW_HEIGHT;
+					const targetBottomEdge = targetY + VIRTUAL_ROW_HEIGHT;
+
+					// Check if target bottom edge is below the wrapper's visible bottom
+					const visibleBottom = scrollTop + wrapperVisibleHeight;
+					const isBelowViewport = targetBottomEdge > visibleBottom;
+
+					if (isBelowViewport) {
+						// Scroll to show in-progress video + 4 extra videos
+						const scrollAmount = targetBottomEdge - visibleBottom;
+
+						// Set flag to prevent recursive auto-scroll
+						wrapper._isAutoScrolling = true;
+
+						wrapper.scrollBy({
+							top: scrollAmount,
+							behavior: 'smooth'
+						});
+
+						// Clear flag after smooth scroll completes
+						setTimeout(() => {
+							wrapper._isAutoScrolling = false;
+						}, 500);
+					}
+					// If target is already visible, don't scroll
+				}
+			} else if (inProgressIndex === -1) {
+				// No in-progress video, reset tracking
+				wrapper._prevInProgressIndex = -1;
+			}
+		}
+		
+		// Manual channel expand/collapse with accordion behavior
+		elements.channelsContainer.addEventListener('click', e => {
+			const header = e.target.closest('.channel-header');
+			if (header) {
+				const clickedChannel = header.parentElement;
+				const clickedUrl = clickedChannel.dataset.url;
+				
+				// If clicking the currently expanded channel, collapse it
+				if (currentlyExpandedChannel === clickedUrl && clickedChannel.classList.contains('expanded')) {
+					currentlyExpandedChannel = null;
+					clickedChannel.classList.remove('expanded');
+					clickedChannel.classList.add('collapsed');
+				} else {
+					// Collapse all other channels
+					elements.channelsContainer.querySelectorAll('.channel').forEach(ch => {
+						ch.classList.remove('expanded');
+						ch.classList.add('collapsed');
+					});
+					
+					// Expand clicked channel
+					currentlyExpandedChannel = clickedUrl;
+					clickedChannel.classList.remove('collapsed');
+					clickedChannel.classList.add('expanded');
+				}
+			}
+		});
+		
+		// Search functionality
+		elements.searchInput.addEventListener('input', e => {
+			searchTerm = e.target.value;
+			renderChannels();
+		});
+		
+		// Filter functionality
+		document.querySelectorAll('.filter-btn').forEach(btn => {
+			btn.addEventListener('click', e => {
+				document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+				e.target.classList.add('active');
+				currentFilter = e.target.dataset.filter;
+				renderChannels();
+			});
+		});
+		
+		// Status Badge Modal
+		elements.overallStatus.addEventListener('click', () => {
+			elements.statusModal.classList.add('show');
+		});
+		
+		elements.closeStatusModal.addEventListener('click', () => {
+			elements.statusModal.classList.remove('show');
+		});
+		
+		elements.statusModal.addEventListener('click', (e) => {
+			if (e.target === elements.statusModal) {
+				elements.statusModal.classList.remove('show');
+			}
+		});
+		
+		function updateStatusModal(data) {
+			document.getElementById('modalCurrentPhase').textContent = data.current_phase || 'Idle';
+			document.getElementById('modalRunningStatus').textContent = data.running ? 'Running' : 'Stopped';
+			document.getElementById('modalTimeSpent').textContent = formatEta(data.elapsed_seconds);
+			document.getElementById('modalListingProgress').textContent = `${Math.round(data.listing_progress || 0)}%`;
+			document.getElementById('modalDownloadProgress').textContent = `${Math.round(data.downloading_progress || 0)}%`;
+			document.getElementById('modalTotalVideos').textContent = data.total_videos_to_process || 0;
+		}
+		
+		// Chart Details Modal
+		function showChartDetailsModal() {
+			const content = document.getElementById('chartModalContent');
+			if (lastVideoData.length === 0) {
+				content.innerHTML = '<div class="empty-state"><div class="empty-state-text">No video data available</div></div>';
+			} else {
+				content.innerHTML = lastVideoData.map((video, idx) => `
+					<div class="modal-info-item">
+						<div style="flex-direction: column; align-items: flex-start; gap: 4px;">
+							<span class="modal-info-label">#${idx + 1}</span>
+							<span class="modal-info-value" style="font-size: 13px; font-weight: 500;">${video.title || 'Unknown'}</span>
+						</div>
+						<span class="modal-info-value">${(video.time_taken || 0).toFixed(2)}s</span>
+					</div>
+				`).join('');
+			}
+			elements.chartModal.classList.add('show');
+		}
+		
+		elements.closeChartModal.addEventListener('click', () => {
+			elements.chartModal.classList.remove('show');
+		});
+		
+		elements.chartModal.addEventListener('click', (e) => {
+			if (e.target === elements.chartModal) {
+				elements.chartModal.classList.remove('show');
+			}
+		});
+
+		// Intelligent Polling
+		async function poll() {
+			try {
+				const res = await fetch('/status');
+				if (res.ok) {
+					const data = await res.json();
+					render(data);
+					updateStatusModal(data);
+				}
+			} catch (e) { 
+				console.error('Poll error:', e); 
+			} finally { 
+				pollTimeout = setTimeout(poll, pollInterval);
+			}
+		}
+		
+		// Manual Refresh
+		elements.refreshBtn.addEventListener('click', async () => {
+			elements.refreshBtn.disabled = true;
+			elements.refreshBtn.innerHTML = '⟳';
+			elements.refreshBtn.style.animation = 'spin 0.8s linear infinite';
+			
+			try {
+				const res = await fetch('/status');
+				if (res.ok) {
+					const data = await res.json();
+					render(data);
+					updateStatusModal(data);
+				}
+			} catch (e) {
+				console.error('Refresh error:', e);
+			} finally {
+				setTimeout(() => {
+					elements.refreshBtn.disabled = false;
+					elements.refreshBtn.innerHTML = '↻';
+					elements.refreshBtn.style.animation = '';
+				}, 500);
+			}
+		});
+
+		document.addEventListener('DOMContentLoaded', () => {
+			initChart();
+			render(sampleData);
+			poll();
+			elements.startBtn.addEventListener('click', () => fetch('/start', {method:'POST'}).catch(console.error));
+			elements.stopBtn.addEventListener('click', () => fetch('/stop', {method:'POST'}).catch(console.error));
+
+			// Setup channelsContainer scroll detection for auto-scroll control
+			elements.channelsContainer._userScrolledRecently = false;
+			elements.channelsContainer._userScrollTimeout = null;
+			elements.channelsContainer._isAutoScrolling = false;
+
+			let channelScrollTimeout;
+			elements.channelsContainer.addEventListener('scroll', () => {
+				// Skip if this is an auto-scroll (not user-initiated)
+				if (elements.channelsContainer._isAutoScrolling) {
+					return;
+				}
+
+				// User manually scrolled channels - disable channel-level auto-scroll for 10 seconds
+				elements.channelsContainer._userScrolledRecently = true;
+				updateAutoScrollStatus();
+
+				clearTimeout(elements.channelsContainer._userScrollTimeout);
+				elements.channelsContainer._userScrollTimeout = setTimeout(() => {
+					elements.channelsContainer._userScrolledRecently = false;
+					updateAutoScrollStatus();
+
+					// Check if there's a processing channel and scroll to it
+					if (lastProcessingChannel) {
+						scrollToProcessingChannel(lastProcessingChannel);
+					}
+				}, 10000); // 10 seconds
+			});
+		});
+	</script>
+	</body>
+	</html>
