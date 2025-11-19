@@ -1776,7 +1776,8 @@
 
         let scrollTimeout;
         wrapper.addEventListener('scroll', () => {
-            // Skip re-render if we're auto-scrolling
+            // Skip scroll-triggered re-render if we're auto-scrolling
+            // (but updateVideosTable can still trigger re-renders for status updates)
             if (wrapper._isAutoScrolling) {
                 return;
             }
@@ -1876,9 +1877,13 @@
                         behavior: 'smooth'
                     });
 
-                    // Clear flag after smooth scroll completes (~300ms for smooth scroll)
+                    // Clear flag after smooth scroll completes and force re-render
                     setTimeout(() => {
                         wrapper._isAutoScrolling = false;
+                        // Force immediate re-render with latest video statuses
+                        if (wrapper._currentVideos) {
+                            renderVisibleRows(wrapper, tbody, wrapper._currentVideos, channelEl);
+                        }
                     }, 500);
                 }
                 // If already visible, don't scroll
