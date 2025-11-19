@@ -1261,8 +1261,9 @@
         elements.totalEta.textContent = formatEta(data.total_eta_seconds);
 
         // Calculate and display average time with download rate
-        const rate = calculateDownloadRate(data.total_videos_processed || 0);
         const avgTime = (data.average_time_per_video || 0).toFixed(1);
+        const avgTimeSeconds = data.average_time_per_video || 0;
+        const rate = avgTimeSeconds > 0 ? Math.round(3600 / avgTimeSeconds) : 0;
         elements.avgTimePerVideo.textContent = `${avgTime}s (${rate}/hr)`;
 
         elements.timeSpent.textContent = formatEta(data.elapsed_seconds || 0);
@@ -1820,7 +1821,7 @@
             tbody.appendChild(row);
         }
 
-        // Auto-scroll to in-progress video (position at bottom of viewport)
+        // Auto-scroll to in-progress video (minimal scroll to bring into view)
         if (inProgressIndex !== -1) {
             const inProgressY = inProgressIndex * VIRTUAL_ROW_HEIGHT;
             const viewportTop = scrollTop;
@@ -1830,19 +1831,28 @@
             const inProgressChanged = wrapper._prevInProgressIndex !== undefined &&
                                      wrapper._prevInProgressIndex !== inProgressIndex;
 
-            // Scroll if:
-            // 1. In-progress video changed (new video started), OR
-            // 2. In-progress video is outside viewport
-            const shouldScroll = inProgressChanged ||
-                               inProgressY < viewportTop ||
-                               inProgressY > viewportBottom - VIRTUAL_ROW_HEIGHT;
+            // Only scroll if in-progress video changed AND is outside viewport
+            if (inProgressChanged) {
+                const isAboveViewport = inProgressY < viewportTop;
+                const isBelowViewport = inProgressY + VIRTUAL_ROW_HEIGHT > viewportBottom;
 
-            if (shouldScroll) {
-                // Position in-progress video at the bottom of visible area
-                wrapper.scrollTo({
-                    top: Math.max(0, inProgressY - viewportHeight + VIRTUAL_ROW_HEIGHT),
-                    behavior: 'smooth'
-                });
+                if (isAboveViewport || isBelowViewport) {
+                    // Minimal scroll: just enough to bring video into view
+                    let newScrollTop;
+                    if (isBelowViewport) {
+                        // Scroll down to show video at bottom of viewport
+                        newScrollTop = inProgressY - viewportHeight + VIRTUAL_ROW_HEIGHT;
+                    } else {
+                        // Scroll up to show video at top of viewport
+                        newScrollTop = inProgressY;
+                    }
+
+                    wrapper.scrollTo({
+                        top: Math.max(0, newScrollTop),
+                        behavior: 'smooth'
+                    });
+                }
+                // If already visible, don't scroll
             }
 
             // Update previous in-progress index
