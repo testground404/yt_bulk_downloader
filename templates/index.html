@@ -1876,7 +1876,7 @@
                 <td class="video-title" title="${v.title || ''}" style="width: auto">${(v.title || '').slice(0, 70)}</td>
                 <td class="video-status-cell" style="width: 140px">
                     <span class="status-pill status-${(v.status||'').replace(/\s+/g,'-').toLowerCase()}">
-                        <span class="spinner" style="display: ${v.status === 'in-progress' ? 'inline-block' : 'none'}"></span> ${v.status}
+                        <span class="spinner" style="visibility: ${v.status === 'in-progress' ? 'visible' : 'hidden'}"></span>${v.status}
                     </span>
                 </td>
                 <td class="tiny video-attempts" style="width: 80px">${v.attempts || 0}</td>
