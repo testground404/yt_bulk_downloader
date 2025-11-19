@@ -1715,7 +1715,7 @@
     }
 
     function scrollToProcessingChannel(channelUrl) {
-        // Don't scroll if user manually scrolled recently
+        // Don't scroll if user manually scrolled channelsContainer recently
         if (elements.channelsContainer._userScrolledRecently) {
             return;
         }
@@ -1737,10 +1737,18 @@
         const scrollAdjustment = currentChannelPosition - targetPosition;
 
         if (Math.abs(scrollAdjustment) > 5) { // Only scroll if more than 5px off
+            // Mark as auto-scrolling to prevent triggering user scroll detection
+            elements.channelsContainer._isAutoScrolling = true;
+
             elements.channelsContainer.scrollBy({
                 top: scrollAdjustment,
                 behavior: 'smooth'
             });
+
+            // Clear flag after scroll completes
+            setTimeout(() => {
+                elements.channelsContainer._isAutoScrolling = false;
+            }, 500);
         }
     }
     
@@ -1820,16 +1828,25 @@
         renderVisibleRows(wrapper, tbody, videos, channelEl);
     }
 
-    function updateAutoScrollStatus(isEnabled) {
+    function updateAutoScrollStatus() {
         const badge = elements.autoScrollStatus;
         if (!badge) return;
 
-        if (isEnabled) {
-            badge.textContent = '🔄 Auto-scroll ON';
-            badge.className = 'auto-scroll-badge on';
-        } else {
+        // Check if ANY level has user-scrolled recently
+        const channelScrollDisabled = elements.channelsContainer._userScrolledRecently || false;
+
+        // Check if any video table has user-scrolled recently
+        const videoTablesDisabled = Array.from(document.querySelectorAll('.channel-table-wrapper'))
+            .some(wrapper => wrapper._userScrolledRecently);
+
+        const anyDisabled = channelScrollDisabled || videoTablesDisabled;
+
+        if (anyDisabled) {
             badge.textContent = '⏸ Auto-scroll OFF (10s)';
             badge.className = 'auto-scroll-badge off';
+        } else {
+            badge.textContent = '🔄 Auto-scroll ON';
+            badge.className = 'auto-scroll-badge on';
         }
     }
 
@@ -1848,14 +1865,14 @@
                 return;
             }
 
-            // User manually scrolled - disable auto-scroll for 10 seconds
+            // User manually scrolled video table - disable this table's auto-scroll for 10 seconds
             wrapper._userScrolledRecently = true;
-            updateAutoScrollStatus(false); // Update global badge
+            updateAutoScrollStatus(); // Update global badge
 
             clearTimeout(wrapper._userScrollTimeout);
             wrapper._userScrollTimeout = setTimeout(() => {
                 wrapper._userScrolledRecently = false;
-                updateAutoScrollStatus(true); // Re-enable badge
+                updateAutoScrollStatus(); // Re-check badge status
             }, 10000); // 10 seconds
 
             clearTimeout(scrollTimeout);
@@ -2113,17 +2130,23 @@
         // Setup channelsContainer scroll detection for auto-scroll control
         elements.channelsContainer._userScrolledRecently = false;
         elements.channelsContainer._userScrollTimeout = null;
+        elements.channelsContainer._isAutoScrolling = false;
 
         let channelScrollTimeout;
         elements.channelsContainer.addEventListener('scroll', () => {
-            // User manually scrolled - disable auto-scroll for 10 seconds
+            // Skip if this is an auto-scroll (not user-initiated)
+            if (elements.channelsContainer._isAutoScrolling) {
+                return;
+            }
+
+            // User manually scrolled channels - disable channel-level auto-scroll for 10 seconds
             elements.channelsContainer._userScrolledRecently = true;
-            updateAutoScrollStatus(false);
+            updateAutoScrollStatus();
 
             clearTimeout(elements.channelsContainer._userScrollTimeout);
             elements.channelsContainer._userScrollTimeout = setTimeout(() => {
                 elements.channelsContainer._userScrolledRecently = false;
-                updateAutoScrollStatus(true);
+                updateAutoScrollStatus();
             }, 10000); // 10 seconds
         });
     });
