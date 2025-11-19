@@ -1455,64 +1455,11 @@
                 }
             }
         });
-        
+
         // Auto-scroll to processing channel if it changed or just started
         if (processingChannel && processingChannelChanged) {
             scrollToProcessingChannel(processingChannel.url);
         }
-    }
-    
-    function scrollToProcessingChannel(channelUrl) {
-        // Use requestAnimationFrame to ensure DOM is updated
-        requestAnimationFrame(() => {
-            const channelEl = elements.channelsContainer.querySelector(`[data-url="${channelUrl}"]`);
-            if (channelEl) {
-                // Calculate position to center the channel in view
-                const container = elements.channelsContainer;
-                const containerHeight = container.clientHeight;
-                const elementTop = channelEl.offsetTop;
-                const elementHeight = channelEl.offsetHeight;
-                
-                // Scroll to center the element, with slight offset for better visibility
-                const scrollPosition = elementTop - (containerHeight / 2) + (elementHeight / 2);
-                
-                container.scrollTo({
-                    top: Math.max(0, scrollPosition),
-                    behavior: 'smooth'
-                });
-            }
-        });
-    }
-    
-    function scrollToProcessingVideo(channelUrl) {
-        // Scroll to the in-progress video row within the channel
-        requestAnimationFrame(() => {
-            const channelEl = elements.channelsContainer.querySelector(`[data-url="${channelUrl}"]`);
-            if (channelEl) {
-                const inProgressRow = channelEl.querySelector('tr.in-progress-row');
-                if (inProgressRow) {
-                    const tableWrapper = channelEl.querySelector('.channel-table-wrapper');
-                    if (tableWrapper) {
-                        const table = tableWrapper.querySelector('table');
-                        const thead = table ? table.querySelector('thead') : null;
-                        const headerHeight = thead ? thead.offsetHeight : 0;
-
-                        const rowTop = inProgressRow.offsetTop;
-                        const wrapperHeight = tableWrapper.clientHeight;
-                        const rowHeight = inProgressRow.offsetHeight;
-
-                        // Center the row in the table view, accounting for sticky header
-                        // Add extra padding to ensure the row is clearly visible below the header
-                        const scrollPosition = rowTop - headerHeight - ((wrapperHeight - headerHeight) / 2) + (rowHeight / 2);
-
-                        tableWrapper.scrollTo({
-                            top: Math.max(0, scrollPosition),
-                            behavior: 'smooth'
-                        });
-                    }
-                }
-            }
-        });
     }
     
     function createChannelElement(ch, isExpanded, isProcessing, isDone, isError, serialNumber) {
@@ -1707,11 +1654,6 @@
 
         // Store updated state
         previousRenderState.set(ch.url, prevState);
-    }
-
-    // Auto-scroll to processing channel when it changes
-    if (processingChannelChanged && processingChannel) {
-        scrollToProcessingChannel(processingChannel.url);
     }
 
     function scrollToProcessingChannel(channelUrl) {
