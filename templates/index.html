@@ -1880,27 +1880,34 @@
 
         // Auto-scroll to in-progress video (minimal scroll to bring into view)
         if (inProgressIndex !== -1) {
-            const inProgressY = inProgressIndex * VIRTUAL_ROW_HEIGHT;
-            const viewportTop = scrollTop;
-            const viewportBottom = scrollTop + viewportHeight;
-
             // Check if in-progress video changed (new video started processing)
             const inProgressChanged = wrapper._prevInProgressIndex !== undefined &&
                                      wrapper._prevInProgressIndex !== inProgressIndex;
+
+            // Always update the previous index (even if we don't scroll)
+            // This prevents state issues when user takes manual control
+            wrapper._prevInProgressIndex = inProgressIndex;
 
             // Only scroll if:
             // 1. In-progress changed (new video)
             // 2. Not already auto-scrolling (prevent recursion)
             // 3. User hasn't manually scrolled recently (respect user control)
-            // 4. Video's bottom edge is below viewport bottom
             if (inProgressChanged && !wrapper._isAutoScrolling && !wrapper._userScrolledRecently) {
+                // Use wrapper's actual visible height (not current scroll viewport)
+                const wrapperVisibleHeight = wrapper.clientHeight;
+                const scrollTop = wrapper.scrollTop;
+
+                // Calculate video position relative to wrapper
+                const inProgressY = inProgressIndex * VIRTUAL_ROW_HEIGHT;
                 const videoBottomEdge = inProgressY + VIRTUAL_ROW_HEIGHT;
-                const isBelowViewport = videoBottomEdge > viewportBottom;
+
+                // Check if video's bottom edge is below the wrapper's visible bottom
+                const visibleBottom = scrollTop + wrapperVisibleHeight;
+                const isBelowViewport = videoBottomEdge > visibleBottom;
 
                 if (isBelowViewport) {
                     // Minimal scroll: just enough to bring bottom edge of video into view
-                    // Scroll by the amount needed to bring video bottom edge above table bottom edge
-                    const scrollAmount = videoBottomEdge - viewportBottom;
+                    const scrollAmount = videoBottomEdge - visibleBottom;
 
                     // Set flag to prevent recursive auto-scroll
                     wrapper._isAutoScrolling = true;
@@ -1917,9 +1924,6 @@
                 }
                 // If video's bottom is already visible, don't scroll
             }
-
-            // Update previous in-progress index
-            wrapper._prevInProgressIndex = inProgressIndex;
         } else if (inProgressIndex === -1) {
             // No in-progress video, reset tracking
             wrapper._prevInProgressIndex = -1;
