@@ -8,10 +8,10 @@
 
 	  <style>
 		:root{
-		  --bg: #000000; --surface: rgba(255, 255, 255, 0.05); --surface-elevated: rgba(255, 255, 255, 0.08);
-		  --muted: rgba(255, 255, 255, 0.4); --text: #ffffff; --text-secondary: rgba(255, 255, 255, 0.6);
-		  --border: rgba(255, 255, 255, 0.1); --border-subtle: rgba(255, 255, 255, 0.05); --accent: #ffffff;
-		  --success: rgba(255, 255, 255, 0.9); --danger: rgba(255, 255, 255, 0.9); --warning: rgba(255, 255, 255, 0.9); --info: rgba(255, 255, 255, 0.9);
+		  --bg: #000000; --surface: #0d0d0d; --surface-elevated: #1a1a1a;
+		  --muted: #666666; --text: #ffffff; --text-secondary: #999999;
+		  --border: #1a1a1a; --border-subtle: #0d0d0d; --accent: #ffffff;
+		  --success: #e6e6e6; --danger: #e6e6e6; --warning: #e6e6e6; --info: #e6e6e6;
 		  --radius: 8px; --radius-sm: 4px;
 		  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, sans-serif;
 		}
@@ -25,7 +25,7 @@
 		.header-desc { color: var(--text-secondary); font-size: 14px; margin: 0; }
 		.controls{ display: flex; gap: 12px; align-items: center; }
 		button{ background: var(--text); color: var(--bg); border: 0; padding: 10px 20px; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; font-size: 14px; transition: all 0.2s ease; white-space: nowrap; }
-		button:hover{ transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,255,255,0.2); }
+		button:hover{ transform: translateY(-1px); box-shadow: 0 4px 12px #333333; }
 		button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none;}
 		button.stop, button.secondary{ background: transparent; color: var(--text); border: 1px solid var(--border); }
 		button.stop:hover:not(:disabled), button.secondary:hover:not(:disabled){ background: var(--surface-elevated); }
@@ -53,7 +53,7 @@
 		}
 		.status-badge:hover { background: var(--surface-elevated); border-color: var(--accent); }
 		.status-badge.is-running {
-		  border-color: rgba(255, 255, 255, 0.3);
+		  border-color: #4d4d4d;
 		  color: var(--text);
 		  animation: pulse-badge 2s infinite;
 		}
@@ -61,18 +61,18 @@
 		  content: '';
 		  width: 8px;
 		  height: 8px;
-		  background: rgba(255, 255, 255, 0.8);
+		  background: #cccccc;
 		  border-radius: 50%;
 		  animation: pulse-dot 2s infinite;
 		  flex-shrink: 0;
 		}
 		@keyframes pulse-dot {
-		  0%, 100% { opacity: 1; transform: scale(1); }
-		  50% { opacity: 0.5; transform: scale(0.8); }
+		  0%, 100% { transform: scale(1); }
+		  50% { transform: scale(0.8); }
 		}
 		@keyframes pulse-badge {
-		  0%, 100% { opacity: 1; }
-		  50% { opacity: 0.7; }
+		  0%, 100% { border-color: #4d4d4d; }
+		  50% { border-color: #666666; }
 		}
 
 		/* Toast Notifications */
@@ -100,9 +100,9 @@
 		  gap: 12px;
 		  align-items: flex-start;
 		}
-		.toast.success { border-left: 3px solid rgba(255, 255, 255, 0.9); }
-		.toast.error { border-left: 3px solid rgba(255, 255, 255, 0.5); }
-		.toast.info { border-left: 3px solid rgba(255, 255, 255, 0.7); }
+		.toast.success { border-left: 3px solid #e6e6e6; }
+		.toast.error { border-left: 3px solid #808080; }
+		.toast.info { border-left: 3px solid #b3b3b3; }
 		.toast-icon { font-size: 20px; flex-shrink: 0; }
 		.toast-content { flex: 1; }
 		.toast-title { font-weight: 600; margin-bottom: 4px; font-size: 14px; }
@@ -164,12 +164,12 @@
 		}
 		.channel-mini-progress-bar {
 		  height: 100%;
-		  background: rgba(255, 255, 255, 0.8);
+		  background: #cccccc;
 		  width: 0%;
 		  transition: width 0.5s ease;
 		}
 		.channel.status-error .channel-mini-progress-bar {
-		  background: rgba(255, 255, 255, 0.4);
+		  background: #666666;
 		}
 
 		/* Trend Indicators */
@@ -178,10 +178,9 @@
 		  align-items: center;
 		  font-size: 10px;
 		  margin-left: 6px;
-		  opacity: 0.7;
 		}
-		.trend-up { color: rgba(255, 255, 255, 0.9); }
-		.trend-down { color: rgba(255, 255, 255, 0.5); }
+		.trend-up { color: #e6e6e6; }
+		.trend-down { color: #808080; }
 
 		/* Collapsible Dashboard */
 		.dashboard-toggle {
@@ -251,8 +250,8 @@
 		  gap: 4px;
 		  transition: all 0.2s ease;
 		}
-		.auto-scroll-badge.on { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.9); }
-		.auto-scroll-badge.off { background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.5); }
+		.auto-scroll-badge.on { background: #1a1a1a; color: #e6e6e6; }
+		.auto-scroll-badge.off { background: #0d0d0d; color: #808080; }
 		.card-body { padding: 24px; flex-grow: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
 		
 		/* Search and Filter */
@@ -324,10 +323,10 @@
 		.channel + .channel { margin-top: 8px; }
 		
 		/* Channel Status Colors */
-		.channel.status-error { border-left: 3px solid rgba(255, 255, 255, 0.5); }
-		.channel.status-done, .channel.status-downloaded { border-left: 3px solid rgba(255, 255, 255, 0.9); }
+		.channel.status-error { border-left: 3px solid #808080; }
+		.channel.status-done, .channel.status-downloaded { border-left: 3px solid #e6e6e6; }
 		.channel.is-processing {
-		  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+		  box-shadow: 0 0 0 1px #333333;
 		  position: relative;
 		}
 		
@@ -340,7 +339,7 @@
 		  right: 0;
 		  bottom: 0;
 		  border-radius: var(--radius-sm);
-		  box-shadow: 0 0 20px rgba(255, 255, 255, 0.15);
+		  box-shadow: 0 0 20px #262626;
 		  animation: pulse-glow 2s ease-in-out infinite;
 		  pointer-events: none;
 		  z-index: -1;
@@ -348,18 +347,16 @@
 
 		@keyframes pulse-glow {
 		  0%, 100% {
-			box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
-			opacity: 1;
+			box-shadow: 0 0 10px #1a1a1a;
 		  }
 		  50% {
-			box-shadow: 0 0 25px rgba(255, 255, 255, 0.2);
-			opacity: 0.8;
+			box-shadow: 0 0 25px #333333;
 		  }
 		}
 
 		@keyframes pulse-bg {
-		  0%, 100% { background-color: rgba(255, 255, 255, 0.03); }
-		  50% { background-color: rgba(255, 255, 255, 0.06); }
+		  0%, 100% { background-color: #080808; }
+		  50% { background-color: #0f0f0f; }
 		}
 		
 		.channel-header{ display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; cursor: pointer; gap: 16px; }
@@ -383,10 +380,10 @@
 		th, td{ padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
 		th{ position: sticky; top: 0; background: var(--surface-elevated); z-index: 10; box-shadow: 0 1px 0 var(--border); }
 		tbody tr:last-child td{ border-bottom: none; }
-		tbody tr:nth-child(even) { background-color: rgba(255, 255, 255, 0.02); }
-		tbody tr:hover { background-color: rgba(255, 255, 255, 0.05); }
+		tbody tr:nth-child(even) { background-color: #050505; }
+		tbody tr:hover { background-color: #0d0d0d; }
 		tbody tr.in-progress-row {
-		  background: rgba(255, 255, 255, 0.08) !important;
+		  background: #1a1a1a !important;
 		  animation: pulse-row 2s ease-in-out infinite;
 		  position: relative;
 		}
@@ -403,26 +400,26 @@
 		  top: 0;
 		  bottom: 0;
 		  width: 3px;
-		  background: rgba(255, 255, 255, 0.8);
-		  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+		  background: #cccccc;
+		  box-shadow: 0 0 10px #4d4d4d;
 		  animation: pulse-border 2s ease-in-out infinite;
 		  z-index: 1;
 		}
 		@keyframes pulse-row {
-		  0%, 100% { background: rgba(255, 255, 255, 0.06) !important; }
-		  50% { background: rgba(255, 255, 255, 0.1) !important; }
+		  0%, 100% { background: #0f0f0f !important; }
+		  50% { background: #1a1a1a !important; }
 		}
 		@keyframes pulse-border {
-		  0%, 100% { box-shadow: 0 0 8px rgba(255, 255, 255, 0.2); }
-		  50% { box-shadow: 0 0 15px rgba(255, 255, 255, 0.4); }
+		  0%, 100% { box-shadow: 0 0 8px #333333; }
+		  50% { box-shadow: 0 0 15px #666666; }
 		}
 		td[title] { cursor: help; }
 		
 		.status-pill{ padding: 4px 10px; border-radius: 999px; font-size: 11px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; text-transform: uppercase; }
 		.status-to-be-listed, .status-listed, .status-pending, .status-initialized { background:var(--surface-elevated); color:var(--muted); }
-		.status-listing, .status-downloading, .status-in-progress { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.9); }
-		.status-done, .status-downloaded { background: rgba(255, 255, 255, 0.15); color: rgba(255, 255, 255, 1); }
-		.status-error{ background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.5); }
+		.status-listing, .status-downloading, .status-in-progress { background: #1a1a1a; color: #e6e6e6; }
+		.status-done, .status-downloaded { background: #262626; color: #ffffff; }
+		.status-error{ background: #0d0d0d; color: #808080; }
 		
 		/* Channel status badges - apply same color coding */
 		.channel-status {
@@ -445,21 +442,21 @@
 		.channel-status.status-listing,
 		.channel-status.status-downloading,
 		.channel-status.status-in-progress {
-		  background: rgba(255, 255, 255, 0.12);
-		  color: rgba(255, 255, 255, 0.9);
-		  border: 1px solid rgba(255, 255, 255, 0.2);
-		  box-shadow: 0 0 12px rgba(255, 255, 255, 0.1);
+		  background: #1f1f1f;
+		  color: #e6e6e6;
+		  border: 1px solid #333333;
+		  box-shadow: 0 0 12px #1a1a1a;
 		}
 		.channel-status.status-done,
 		.channel-status.status-downloaded {
-		  background: rgba(255, 255, 255, 0.15);
-		  color: rgba(255, 255, 255, 1);
-		  border: 1px solid rgba(255, 255, 255, 0.3);
+		  background: #262626;
+		  color: #ffffff;
+		  border: 1px solid #4d4d4d;
 		}
 		.channel-status.status-error {
-		  background: rgba(255, 255, 255, 0.05);
-		  color: rgba(255, 255, 255, 0.5);
-		  border: 1px solid rgba(255, 255, 255, 0.15);
+		  background: #0d0d0d;
+		  color: #808080;
+		  border: 1px solid #262626;
 		}
 		.spinner { display: inline-block; width: 10px; height: 10px; border: 2px solid currentColor; border-radius: 50%; border-top-color: transparent; animation: spin 0.8s linear infinite; }
 		@keyframes spin { to { transform: rotate(360deg); } }
@@ -478,7 +475,7 @@
 		  height: 100%;
 		  width: 0%;
 		  transition: width 0.5s ease;
-		  background: rgba(255, 255, 255, 0.8);
+		  background: #cccccc;
 		  position: relative;
 		  overflow: hidden;
 		}
@@ -489,13 +486,12 @@
 		  left: 0;
 		  bottom: 0;
 		  right: 0;
-		  background: rgba(255, 255, 255, 0.2);
+		  background: #e6e6e6;
 		  animation: progress-shimmer 2s infinite;
 		}
 		@keyframes progress-shimmer {
-		  0% { transform: translateX(-100%); opacity: 0; }
-		  50% { opacity: 1; }
-		  100% { transform: translateX(100%); opacity: 0; }
+		  0% { transform: translateX(-100%); }
+		  100% { transform: translateX(100%); }
 		}
 		.progressbar-label {
 		  display: none;
@@ -538,7 +534,7 @@
 		}
 		.stats-item .label { font-size: 11px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
 		.stats-item .value { font-size: 20px; font-weight: 600; letter-spacing: -0.5px; }
-		.value.green{color:rgba(255, 255, 255, 0.95);} .value.blue{color:rgba(255, 255, 255, 0.85);} .value.red{color:rgba(255, 255, 255, 0.6);}
+		.value.green{color:#f2f2f2;} .value.blue{color:#d9d9d9;} .value.red{color:#999999;}
 		
 		.progress-section { margin-bottom: 24px; }
 		.progress-item { margin-bottom: 16px; position: relative; }
@@ -554,7 +550,7 @@
 		  left: 0;
 		  right: 0;
 		  bottom: 0;
-		  background: rgba(0, 0, 0, 0.9);
+		  background: #000000;
 		  backdrop-filter: blur(4px);
 		  display: none;
 		  align-items: center;
@@ -643,8 +639,8 @@
 		  border-radius: var(--radius-sm);
 		}
 		@keyframes skeleton-loading {
-		  0%, 100% { opacity: 0.5; }
-		  50% { opacity: 0.8; }
+		  0%, 100% { background-color: #1a1a1a; }
+		  50% { background-color: #262626; }
 		}
 		.skeleton-stat {
 		  height: 80px;
@@ -772,7 +768,7 @@
 					  <div class="progress-label"><span>Listing Progress</span><span id="listingProgressText">0 / 0 Channels</span></div>
 					  <div class="progressbar">
 						<span class="progressbar-label" id="listingProgressLabel">0%</span>
-						<i id="listingProgressBar" style="background: rgba(255, 255, 255, 0.8);"></i>
+						<i id="listingProgressBar" style="background: #cccccc;"></i>
 					  </div>
 				  </div>
 				  <div class="progress-item">
@@ -1078,21 +1074,21 @@
 				{
 				  label: 'Processing Time',
 				  data: [],
-				  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-				  borderColor: 'rgba(255, 255, 255, 0.8)',
+				  backgroundColor: '#1a1a1a',
+				  borderColor: '#cccccc',
 				  borderWidth: 2,
 				  tension: 0.4,
 				  fill: true,
 				  pointRadius: 4,
 				  pointHoverRadius: 6,
-				  pointBackgroundColor: 'rgba(255, 255, 255, 1)',
+				  pointBackgroundColor: '#ffffff',
 				  pointBorderColor: '#000',
 				  pointBorderWidth: 2,
 				},
 				{
 				  label: 'Average',
 				  data: [],
-				  borderColor: 'rgba(255, 255, 255, 0.5)',
+				  borderColor: '#808080',
 				  borderWidth: 2,
 				  borderDash: [5, 5],
 				  pointRadius: 0,
@@ -1110,10 +1106,10 @@
 			  },
 			  plugins: {
 				tooltip: {
-				  backgroundColor: 'rgba(0, 0, 0, 0.95)',
+				  backgroundColor: '#000000',
 				  titleColor: '#ffffff',
-				  bodyColor: 'rgba(255, 255, 255, 0.7)',
-				  borderColor: 'rgba(255, 255, 255, 0.2)',
+				  bodyColor: '#b3b3b3',
+				  borderColor: '#333333',
 				  borderWidth: 1,
 				  padding: 12,
 				  displayColors: true,
@@ -1145,7 +1141,7 @@
 				legend: {
 				  display: true,
 				  labels: {
-					color: 'rgba(255, 255, 255, 0.6)',
+					color: '#999999',
 					font: { size: 11 },
 					usePointStyle: true,
 					padding: 15
@@ -1156,14 +1152,14 @@
 				y: {
 				  beginAtZero: true,
 				  grid: {
-					color: 'rgba(255, 255, 255, 0.1)',
+					color: '#1a1a1a',
 					drawBorder: false
 				  },
 				  border: {
 					display: false
 				  },
 				  ticks: {
-					color: 'rgba(255, 255, 255, 0.6)',
+					color: '#999999',
 					font: { size: 10 },
 					callback: function(value) {
 					  return value.toFixed(1) + 's';
@@ -1172,7 +1168,7 @@
 				  title: {
 					display: true,
 					text: 'Time (seconds)',
-					color: 'rgba(255, 255, 255, 0.6)',
+					color: '#999999',
 					font: { size: 11 }
 				  }
 				},
@@ -1185,7 +1181,7 @@
 					display: false
 				  },
 				  ticks: {
-					color: 'rgba(255, 255, 255, 0.6)',
+					color: '#999999',
 					font: { size: 10 },
 					maxRotation: 45,
 					minRotation: 0
@@ -1193,7 +1189,7 @@
 				  title: {
 					display: true,
 					text: 'Recent Videos',
-					color: 'rgba(255, 255, 255, 0.6)',
+					color: '#999999',
 					font: { size: 11 }
 				  }
 				}
