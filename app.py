@@ -621,12 +621,17 @@ def run_downloader_task():
         # Process each video in the channel
         while app_status["running"]:
             with status_lock:
-                # Find next video to process
+                # Find next video to process (include in-progress from atomic transition)
                 target_video = None
                 target_idx = -1
 
                 for idx, v in enumerate(channel.get("videos", [])):
-                    if v.get("status") == "pending":
+                    if v.get("status") == "in-progress":
+                        # Already marked by previous video's atomic transition
+                        target_video = v
+                        target_idx = idx
+                        break
+                    elif v.get("status") == "pending":
                         # Check retry limit
                         if v.get("attempts", 0) < config.MAX_RETRIES:
                             target_video = v
