@@ -5,7 +5,7 @@ import logging
 import threading
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import deque
 from flask import Flask, render_template, jsonify, request, send_file
 from flask_cors import CORS
@@ -26,11 +26,11 @@ class Config:
     PORT: int = 5000
     
     # Performance settings
-    PROGRESS_SAVE_INTERVAL: int = 30  # seconds
-    PROGRESS_SAVE_BATCH: int = 10  # videos
+    PROGRESS_SAVE_INTERVAL: int = 5  # seconds - frequent saves for real-time sync
+    PROGRESS_SAVE_BATCH: int = 3  # videos - save after every 3 videos
     MAX_LOG_LINES: int = 100
     MAX_RECENT_TIMES: int = 10
-    METRICS_CACHE_DURATION: int = 2  # seconds
+    METRICS_CACHE_DURATION: int = 1  # seconds - real-time metrics
     
     # Download settings
     MAX_RETRIES: int = 3
@@ -39,6 +39,7 @@ class Config:
     
     # Subtitle settings
     SUB_LANGUAGES: List[str] = None
+    CAPTIONS_SUBFOLDER: str = "captions"
     
     def __post_init__(self):
         if self.SUB_LANGUAGES is None:
@@ -143,89 +144,127 @@ def load_progress():
                 with open(config.PROGRESS_FILE, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     app_status["channels"] = data.get("channels", [])
-                    
-                    # Restore recent times as deque
-                    recent_times = data.get("recent_download_times", [])
-                    app_status["recent_download_times"] = deque(recent_times, maxlen=config.MAX_RECENT_TIMES)
-                    
+
+                    # Don't restore recent_download_times - reset for current session only
+                    # This ensures average time only reflects current session performance
+                    app_status["recent_download_times"] = deque(maxlen=config.MAX_RECENT_TIMES)
+
+                    # Cleanup: Reset any stuck "in-progress" videos from previous session
+                    for channel in app_status["channels"]:
+                        for video in channel.get("videos", []):
+                            if video.get("status") == "in-progress":
+                                video["status"] = "pending"
+                                logging.info(f"Reset stuck in-progress video to pending: {video.get('title', 'Unknown')}")
+
                     logging.info(f"Loaded progress: {len(app_status['channels'])} channels")
             except (json.JSONDecodeError, IOError) as e:
                 logging.error(f"Failed to load progress: {e}. Starting fresh.")
                 app_status["channels"] = []
-        
-        # Initial metrics calculation
+            except Exception as e:
+                logging.error(f"Unexpected error loading progress: {e}. Starting fresh.")
+                app_status["channels"] = []
+
+    # Initial metrics calculation - OUTSIDE the lock to avoid deadlock
+    try:
         calculate_metrics()
+    except Exception as e:
+        logging.error(f"Error calculating initial metrics: {e}")
+        logging.error(f"Continuing anyway...")
 
 def should_relist_channel(channel):
     """Check if a channel should be re-listed based on last listing time.
-    
+    Fixed to handle naive vs aware datetime comparison correctly.
+
     Returns True if:
     - Channel has never been listed
     - Channel was listed more than 7 days ago
     - Channel has no last_listed timestamp
-    
+
     Returns False if:
     - Channel was listed within the last 7 days
     """
     last_listed = channel.get('last_listed')
-    
+
     if not last_listed:
         return True
-    
+
     try:
-        last_listed_time = datetime.fromisoformat(last_listed.replace('Z', '+00:00'))
-        days_since_listing = (datetime.utcnow() - last_listed_time).total_seconds() / 86400
-        
+        # Clean the timestamp to ensure we have a naive string (remove Z or offset)
+        # This ensures we interpret the time as "UTC time" but without the timezone object
+        # so it is compatible with datetime.utcnow()
+        clean_timestamp = last_listed.replace('Z', '').split('+')[0]
+
+        last_listed_time = datetime.fromisoformat(clean_timestamp)
+
+        # Calculate days difference
+        # datetime.utcnow() is naive UTC; last_listed_time is now naive UTC
+        days_since_listing = (datetime.now(timezone.utc).replace(tzinfo=None) - last_listed_time).total_seconds() / 86400
+
         if days_since_listing < 7:
-            logging.info(f"Skipping listing for {channel['name']} - last listed {days_since_listing:.1f} days ago")
+            logging.info(f"✓ Skipping listing for {channel['name']} - last listed {days_since_listing:.1f} days ago")
             return False
         else:
-            logging.info(f"Re-listing {channel['name']} - last listed {days_since_listing:.1f} days ago")
+            logging.info(f"↻ Re-listing {channel['name']} - last listed {days_since_listing:.1f} days ago")
             return True
+
     except Exception as e:
-        logging.warning(f"Error parsing last_listed timestamp for {channel['name']}: {e}. Will re-list.")
+        logging.warning(f"⚠ Error parsing last_listed timestamp for {channel['name']} ({last_listed}): {e}. Will re-list.")
         return True
 
 def save_progress(force=False):
-    """Save progress to disk with batching."""
+    """Save progress to disk with batching and atomic write to prevent corruption."""
     global progress_dirty, progress_counter, last_progress_save
-    
+
     current_time = time.time()
     progress_counter += 1
-    
+
     # Save if: forced, batch size reached, or time interval elapsed
     should_save = (
-        force or 
+        force or
         progress_counter >= config.PROGRESS_SAVE_BATCH or
         (current_time - last_progress_save) >= config.PROGRESS_SAVE_INTERVAL
     )
-    
+
     if not should_save:
         progress_dirty = True
         return
-    
+
     with status_lock:
         try:
-            # Create backup before saving
-            if os.path.exists(config.PROGRESS_FILE):
-                shutil.copy(config.PROGRESS_FILE, config.PROGRESS_FILE + ".bak")
-            
             data = {
                 "channels": app_status["channels"],
                 "recent_download_times": list(app_status["recent_download_times"]),
-                "last_saved": datetime.utcnow().isoformat(),
-                "version": "2.0.0"  # Track schema version
+                "last_saved": datetime.now(timezone.utc).isoformat(),
+                "version": "2.0.0"
             }
-            
-            with open(config.PROGRESS_FILE, 'w', encoding='utf-8') as f:
+
+            # --- ATOMIC WRITE START ---
+            # 1. Write to a temporary file first
+            temp_file = config.PROGRESS_FILE + ".tmp"
+            with open(temp_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2)
-            
+                f.flush()
+                os.fsync(f.fileno()) # Ensure data is physically on disk
+
+            # 2. Create backup of the OLD file (if it exists)
+            if os.path.exists(config.PROGRESS_FILE):
+                shutil.copy(config.PROGRESS_FILE, config.PROGRESS_FILE + ".bak")
+
+            # 3. Atomically rename temp file to actual file
+            # This operation is instant and prevents corruption
+            os.replace(temp_file, config.PROGRESS_FILE)
+            # --- ATOMIC WRITE END ---
+
             progress_dirty = False
             progress_counter = 0
             last_progress_save = current_time
-            
+
+            logging.info(f"💾 Progress saved: {len(app_status['channels'])} channels")
+
         except IOError as e:
             logging.error(f"Failed to save progress: {e}")
+        except Exception as e:
+            logging.error(f"Unexpected error saving progress: {e}")
 
 def calculate_metrics():
     """Calculate all metrics - OPTIMIZED VERSION.
@@ -242,8 +281,14 @@ def calculate_metrics():
 
         # Update elapsed time
         if app_status.get("task_start_time"):
-            start_time = datetime.fromisoformat(app_status["task_start_time"])
-            app_status["elapsed_seconds"] = (datetime.utcnow() - start_time).total_seconds()
+            try:
+                # Clean timestamp to handle 'Z' suffix and timezone offsets
+                clean_start = app_status["task_start_time"].replace('Z', '').split('+')[0]
+                start_time = datetime.fromisoformat(clean_start)
+                app_status["elapsed_seconds"] = (datetime.now(timezone.utc).replace(tzinfo=None) - start_time).total_seconds()
+            except Exception as e:
+                logging.warning(f"Error calculating elapsed time: {e}")
+                app_status["elapsed_seconds"] = 0
 
         # Calculate average time
         recent_times = app_status.get("recent_download_times", deque())
@@ -402,7 +447,7 @@ def run_downloader_task():
             "current_phase": "Listing",
             "listing_progress": 0,
             "downloading_progress": 0,
-            "task_start_time": datetime.utcnow().isoformat()
+            "task_start_time": datetime.now(timezone.utc).isoformat()
         })
         
         # Preserve existing progress
@@ -431,109 +476,153 @@ def run_downloader_task():
             
             app_status["channels"].append(channel)
         
-        # Reset error videos for retry (keep existing logic)
+        # Reset error videos for retry - optimized to only process channels with errors
         for c in app_status["channels"]:
-            if c.get("videos"):
+            if c.get("videos") and c.get("video_error_count", 0) > 0:
                 for v in c["videos"]:
                     if v.get("status") == "error" and v.get("attempts", 0) < config.MAX_RETRIES:
                         v["status"] = "pending"
-    
+
+    # Save progress after initialization
     save_progress(force=True)
 
     # Phase 1: Listing
     logging.info("Starting Phase 1: Listing channels")
+
+    # First, batch-process channels that don't need listing (instant handling)
+    channels_to_list = []
+    skipped_channels = []
+
     for channel in app_status["channels"]:
+        if channel.get("status") == "To Be Listed" or should_relist_channel(channel):
+            channels_to_list.append(channel)
+        elif channel.get("status") in ["Listed", "Downloading", "Done"]:
+            skipped_channels.append(channel)
+
+    if skipped_channels:
+        logging.info(f"📦 Loading {len(skipped_channels)} channels from cache (listed within 7 days):")
+        for ch in skipped_channels:
+            video_count = len(ch.get("videos", []))
+            last_listed = ch.get("last_listed", "Unknown")
+            logging.info(f"  ✓ {ch['name']}: {video_count} videos (cached from {last_listed})")
+
+    if channels_to_list:
+        logging.info(f"🔄 Need to list {len(channels_to_list)} channels (new or >7 days old)")
+
+    logging.info(f"📊 Listing summary: {len(skipped_channels)} cached, {len(channels_to_list)} to list")
+
+    # Update metrics once after batch processing skipped channels (fast path)
+    if len(skipped_channels) > 0 and len(channels_to_list) == 0:
+        # All channels skipped - update metrics and move to download phase immediately
+        calculate_metrics()
+        save_progress(force=True)
+        with status_lock:
+            app_status["current_phase"] = "Downloading"
+            app_status["overall_status"] = "All channels already listed - starting downloads"
+    elif len(channels_to_list) > 0:
+        # Some channels need listing - update metrics once before starting
+        calculate_metrics()
+        save_progress(force=True)
+
+    # Now process channels that need listing
+    for channel in channels_to_list:
         if not app_status["running"]:
             break
-        
-        # Check if channel needs to be listed/re-listed
-        if channel.get("status") == "To Be Listed" or should_relist_channel(channel):
-            with status_lock:
-                channel["status"] = "Listing"
-                app_status["overall_status"] = f"Listing: {channel['name']}"
-            
-            calculate_metrics()
-            save_progress()
-            
-            try:
-                command = ["yt-dlp", "--flat-playlist", "--dump-json", channel["url"]]
-                logging.info(f"Listing channel: {channel['name']}")
-                
-                proc = subprocess.run(
-                    command,
-                    capture_output=True,
-                    text=True,
-                    encoding='utf-8',
-                    check=True,
-                    timeout=300  # 5 minute timeout
-                )
-                
-                videos_data = [
-                    json.loads(line) 
-                    for line in proc.stdout.strip().split('\n') 
-                    if line.strip()
-                ]
-                
-                with status_lock:
-                    if videos_data:
-                        channel["name"] = (
-                            videos_data[0].get("uploader") or 
-                            videos_data[0].get("channel") or 
-                            channel["name"]
-                        )
-                    
-                    # Get existing video IDs to preserve progress
-                    existing_videos = {v["id"]: v for v in channel.get("videos", [])}
-                    
-                    # Update video list, preserving existing progress
-                    new_videos = []
-                    for v in videos_data:
-                        if "id" not in v:
-                            continue
-                        
-                        video_id = v["id"]
-                        if video_id in existing_videos:
-                            # Keep existing video with its progress
-                            existing_video = existing_videos[video_id]
-                            # Update title in case it changed
-                            existing_video["title"] = v.get("title", existing_video.get("title", "Unknown"))
-                            new_videos.append(existing_video)
-                        else:
-                            # Add new video
-                            new_videos.append({
-                                "id": video_id,
-                                "title": v.get("title", "Unknown"),
-                                "url": f"https://www.youtube.com/watch?v={video_id}",
-                                "status": "pending",
-                                "attempts": 0
-                            })
-                    
-                    channel["videos"] = new_videos
-                    channel["status"] = "Listed"
-                    channel["last_listed"] = datetime.utcnow().isoformat() + "Z"
-                    app_status["overall_status"] = f"Listed: {channel['name']} ({len(channel['videos'])} videos)"
-                    
-                logging.info(f"Listed {len(channel['videos'])} videos from {channel['name']}")
-                
-            except subprocess.TimeoutExpired:
-                logging.error(f"Timeout listing channel {channel['name']}")
-                with status_lock:
-                    channel["status"] = "Error"
-            except Exception as e:
-                logging.error(f"Failed to list channel {channel['name']}: {e}")
-                with status_lock:
-                    channel["status"] = "Error"
-        elif channel.get("status") in ["Listed", "Downloading", "Done"]:
-            # Channel already listed recently, skip to downloading
-            logging.info(f"Skipping listing for {channel['name']} - already listed recently")
-        
+
+        with status_lock:
+            channel["status"] = "Listing"
+            app_status["overall_status"] = f"Listing: {channel['name']}"
+
         calculate_metrics()
-        save_progress()
-    
+        threading.Thread(target=save_progress, daemon=True).start()
+
+        try:
+            command = ["yt-dlp", "--flat-playlist", "--dump-json", channel["url"]]
+            logging.info(f"🔄 Listing channel: {channel['name']}")
+
+            # Start timing
+            start_time = time.time()
+
+            proc = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                check=True,
+                timeout=300  # 5 minute timeout
+            )
+
+            videos_data = [
+                json.loads(line)
+                for line in proc.stdout.strip().split('\n')
+                if line.strip()
+            ]
+
+            # Calculate elapsed time
+            elapsed_time = time.time() - start_time
+
+            with status_lock:
+                if videos_data:
+                    channel["name"] = (
+                        videos_data[0].get("uploader") or
+                        videos_data[0].get("channel") or
+                        channel["name"]
+                    )
+
+                # Get existing video IDs to preserve progress
+                existing_videos = {v["id"]: v for v in channel.get("videos", [])}
+
+                # Update video list, preserving existing progress
+                new_videos = []
+                for v in videos_data:
+                    if "id" not in v:
+                        continue
+
+                    video_id = v["id"]
+                    if video_id in existing_videos:
+                        # Keep existing video with its progress
+                        existing_video = existing_videos[video_id]
+                        # Update title in case it changed
+                        existing_video["title"] = v.get("title", existing_video.get("title", "Unknown"))
+                        new_videos.append(existing_video)
+                    else:
+                        # Add new video
+                        new_videos.append({
+                            "id": video_id,
+                            "title": v.get("title", "Unknown"),
+                            "url": f"https://www.youtube.com/watch?v={video_id}",
+                            "status": "pending",
+                            "attempts": 0
+                        })
+
+                channel["videos"] = new_videos
+                channel["status"] = "Listed"
+                channel["last_listed"] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+                app_status["overall_status"] = f"Listed: {channel['name']} ({len(channel['videos'])} videos)"
+
+            logging.info(f"✅ Listed {len(channel['videos'])} videos from {channel['name']} in {elapsed_time:.2f}s")
+            logging.info(f"💾 Timestamp: {channel['last_listed']} (cached for 7 days)")
+
+        except subprocess.TimeoutExpired:
+            logging.error(f"Timeout listing channel {channel['name']}")
+            with status_lock:
+                channel["status"] = "Error"
+        except Exception as e:
+            logging.error(f"Failed to list channel {channel['name']}: {e}")
+            with status_lock:
+                channel["status"] = "Error"
+
+        calculate_metrics()
+        save_progress(force=True)  # Immediately save to progress.json after each channel
+
     # Phase 2: Downloading
     with status_lock:
         if app_status["running"]:
             app_status["current_phase"] = "Downloading"
+            app_status["overall_status"] = "Starting downloads"
+
+    # Force save before downloading phase
+    save_progress(force=True)
     
     logging.info("Starting Phase 2: Downloading subtitles")
     
@@ -550,12 +639,17 @@ def run_downloader_task():
         # Process each video in the channel
         while app_status["running"]:
             with status_lock:
-                # Find next video to process
+                # Find next video to process (include in-progress from atomic transition)
                 target_video = None
                 target_idx = -1
-                
+
                 for idx, v in enumerate(channel.get("videos", [])):
-                    if v.get("status") == "pending":
+                    if v.get("status") == "in-progress":
+                        # Already marked by previous video's atomic transition
+                        target_video = v
+                        target_idx = idx
+                        break
+                    elif v.get("status") == "pending":
                         # Check retry limit
                         if v.get("attempts", 0) < config.MAX_RETRIES:
                             target_video = v
@@ -567,16 +661,31 @@ def run_downloader_task():
                             target_video = v
                             target_idx = idx
                             break
-            
+
             if not target_video:
                 with status_lock:
                     channel["status"] = "Done"
                 logging.info(f"Completed channel: {channel['name']}")
                 break
-            
-            # Download video
-            download_video(channel, target_video, target_idx)
-            
+
+            # Find the next video to prepare for atomic transition
+            # BUT only if no other video is already in-progress (prevents duplicates)
+            next_video = None
+            with status_lock:
+                # First check: is there ANY in-progress video in the channel?
+                has_in_progress = any(v.get("status") == "in-progress" for v in channel.get("videos", []))
+
+                # Only find next video if current target will be the only in-progress video
+                if not has_in_progress or target_video.get("status") == "in-progress":
+                    for idx, v in enumerate(channel.get("videos", [])):
+                        if idx > target_idx and v.get("status") in ["pending", "error"]:
+                            if v.get("attempts", 0) < config.MAX_RETRIES:
+                                next_video = v
+                                break
+
+            # Download video (will mark next as in-progress atomically when done)
+            download_video(channel, target_video, target_idx, next_video)
+
             # Rate limiting
             time.sleep(config.RATE_LIMIT_DELAY)
         
@@ -595,25 +704,41 @@ def run_downloader_task():
     save_progress(force=True)
     logging.info("Download task completed")
 
-def download_video(channel, video, video_idx):
-    """Download a single video's subtitles with retry logic."""
+def download_video(channel, video, video_idx, next_video=None):
+    """Download a single video's subtitles with retry logic.
+
+    Args:
+        channel: The channel dict
+        video: Current video to download
+        video_idx: Index of current video
+        next_video: Next video to process (for atomic transition)
+    """
+    # Only update status if not already in-progress (prevents double-increment from atomic transition)
     with status_lock:
-        app_status["overall_status"] = f"Downloading: {video.get('title', '')[:40]}..."
-        video["status"] = "in-progress"
-        video["attempts"] = video.get("attempts", 0) + 1
-        video["last_attempt"] = datetime.utcnow().isoformat() + "Z"
-    
+        total_videos = len(channel.get("videos", []))
+        video_num = video_idx + 1
+
+        if video.get("status") != "in-progress":
+            app_status["overall_status"] = f"Downloading [{video_num}/{total_videos}]: {video.get('title', '')[:40]}..."
+            video["status"] = "in-progress"
+            video["attempts"] = video.get("attempts", 0) + 1
+            video["last_attempt"] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+        else:
+            # Already marked in-progress by previous video's atomic transition
+            app_status["overall_status"] = f"Downloading [{video_num}/{total_videos}]: {video.get('title', '')[:40]}..."
+
     calculate_metrics()
     save_progress()
     
     # Prepare download directory
     safe_name = re.sub(r'[\\/*?:"<>|]', "", channel.get('name', channel.get('url')))
-    os.makedirs(safe_name, exist_ok=True)
+    caption_output_dir = os.path.join(safe_name, config.CAPTIONS_SUBFOLDER)
+    os.makedirs(caption_output_dir, exist_ok=True)
     
     # Build command
     command = [
         "yt-dlp",
-        "-o", os.path.join(safe_name, "%(title)s [%(id)s].%(ext)s"),
+        "-o", os.path.join(caption_output_dir, "%(title)s [%(id)s].%(ext)s"),
         "--write-sub",
         "--write-auto-sub",
         "--sub-lang", ",".join(config.SUB_LANGUAGES),
@@ -623,7 +748,7 @@ def download_video(channel, video, video_idx):
         video["url"]
     ]
     
-    start_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc).replace(tzinfo=None)
     process = None
     
     try:
@@ -649,7 +774,7 @@ def download_video(channel, video, video_idx):
         
         with status_lock:
             if process.returncode == 0:
-                time_taken = (datetime.utcnow() - start_time).total_seconds()
+                time_taken = (datetime.now(timezone.utc).replace(tzinfo=None) - start_time).total_seconds()
                 video["status"] = "downloaded"
                 video["time_taken"] = time_taken
                 app_status["recent_download_times"].append(time_taken)
@@ -657,11 +782,43 @@ def download_video(channel, video, video_idx):
             else:
                 video["status"] = "error"
                 logging.error(f"Failed to download: {video['title']} (attempt {video['attempts']}/{config.MAX_RETRIES})")
-        
+
+            # Atomically mark next video as in-progress to prevent visual gap
+            # Safety check: only if it's not already in-progress
+            if next_video and next_video.get("status") != "in-progress":
+                next_video["status"] = "in-progress"
+                next_video["attempts"] = next_video.get("attempts", 0) + 1
+                next_video["last_attempt"] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+
+                # Find next video index for status display
+                next_video_idx = channel.get("videos", []).index(next_video) if next_video in channel.get("videos", []) else -1
+                if next_video_idx >= 0:
+                    next_video_num = next_video_idx + 1
+                    total_videos = len(channel.get("videos", []))
+                    app_status["overall_status"] = f"Downloading [{next_video_num}/{total_videos}]: {next_video.get('title', '')[:40]}..."
+                else:
+                    app_status["overall_status"] = f"Downloading: {next_video.get('title', '')[:40]}..."
+
     except Exception as e:
         logging.error(f"Error processing video {video['title']}: {e}")
         with status_lock:
             video["status"] = "error"
+
+            # Atomically mark next video as in-progress even on error
+            # Safety check: only if it's not already in-progress
+            if next_video and next_video.get("status") != "in-progress":
+                next_video["status"] = "in-progress"
+                next_video["attempts"] = next_video.get("attempts", 0) + 1
+                next_video["last_attempt"] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+
+                # Find next video index for status display
+                next_video_idx = channel.get("videos", []).index(next_video) if next_video in channel.get("videos", []) else -1
+                if next_video_idx >= 0:
+                    next_video_num = next_video_idx + 1
+                    total_videos = len(channel.get("videos", []))
+                    app_status["overall_status"] = f"Downloading [{next_video_num}/{total_videos}]: {next_video.get('title', '')[:40]}..."
+                else:
+                    app_status["overall_status"] = f"Downloading: {next_video.get('title', '')[:40]}..."
     finally:
         with process_lock:
             if video["url"] in channel_processes:
@@ -764,7 +921,7 @@ def export_json():
     """Export full progress as JSON."""
     with status_lock:
         data = {
-            "exported_at": datetime.utcnow().isoformat(),
+            "exported_at": datetime.now(timezone.utc).isoformat(),
             "channels": app_status["channels"],
             "statistics": {
                 "total_channels": app_status["total_channels"],
@@ -813,8 +970,10 @@ if __name__ == "__main__":
         exit(1)
     
     # Load existing progress
+    logging.info("Loading progress from disk...")
     load_progress()
-    
+    logging.info("Progress loaded successfully")
+
     logging.info(f"Starting Caption Downloader on {config.HOST}:{config.PORT}")
     logging.info(f"Configuration: {asdict(config)}")
     
