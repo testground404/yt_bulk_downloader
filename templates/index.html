@@ -1748,16 +1748,23 @@
             thead = table.querySelector('thead');
         }
 
+        // Store current videos in wrapper for access during scroll
+        wrapper._currentVideos = videos;
+
         // Update virtual scroll
         renderVisibleRows(wrapper, tbody, videos, channelEl);
     }
 
     function setupVirtualScroll(wrapper, tbody, videos, channelEl) {
+        // Track previous in-progress index for this wrapper
+        wrapper._prevInProgressIndex = -1;
+
         let scrollTimeout;
         wrapper.addEventListener('scroll', () => {
             clearTimeout(scrollTimeout);
             scrollTimeout = setTimeout(() => {
-                renderVisibleRows(wrapper, tbody, videos, channelEl);
+                const currentVideos = channelEl.querySelector('.channel-videos-container')?._currentVideos || videos;
+                renderVisibleRows(wrapper, tbody, currentVideos, channelEl);
             }, 16); // ~60fps throttle
         });
     }
@@ -1819,14 +1826,30 @@
             const viewportTop = scrollTop;
             const viewportBottom = scrollTop + viewportHeight;
 
-            // Scroll if in-progress video is outside viewport
-            if (inProgressY < viewportTop || inProgressY > viewportBottom - VIRTUAL_ROW_HEIGHT) {
+            // Check if in-progress video changed (new video started processing)
+            const inProgressChanged = wrapper._prevInProgressIndex !== undefined &&
+                                     wrapper._prevInProgressIndex !== inProgressIndex;
+
+            // Scroll if:
+            // 1. In-progress video changed (new video started), OR
+            // 2. In-progress video is outside viewport
+            const shouldScroll = inProgressChanged ||
+                               inProgressY < viewportTop ||
+                               inProgressY > viewportBottom - VIRTUAL_ROW_HEIGHT;
+
+            if (shouldScroll) {
                 // Position in-progress video at the bottom of visible area
                 wrapper.scrollTo({
                     top: Math.max(0, inProgressY - viewportHeight + VIRTUAL_ROW_HEIGHT),
                     behavior: 'smooth'
                 });
             }
+
+            // Update previous in-progress index
+            wrapper._prevInProgressIndex = inProgressIndex;
+        } else if (inProgressIndex === -1) {
+            // No in-progress video, reset tracking
+            wrapper._prevInProgressIndex = -1;
         }
     }
     
