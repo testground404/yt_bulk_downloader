@@ -1515,6 +1515,7 @@
             </div>
             <div class="tiny" style="display:flex;align-items:center;gap:12px;">
                 <span class="channel-counts" style="color:var(--text-secondary);font-size:12px;white-space:nowrap;"></span>
+                <span class="channel-errors-badge" style="color:var(--error);font-size:12px;font-weight:500;display:none;"></span>
                 <span class="channel-status" style="gap:6px;display:inline-flex;align-items:center;"></span>
                 <span class="channel-progress" style="min-width:45px;text-align:right;font-weight:600;"></span>
             </div>
@@ -1647,6 +1648,19 @@
             if (errorsEl) {
                 errorsEl.textContent = ch.video_error_count || 0;
             }
+
+            // Update error badge in header
+            const errorsBadge = channelEl.querySelector('.channel-errors-badge');
+            if (errorsBadge) {
+                const errorCount = ch.video_error_count || 0;
+                if (errorCount > 0) {
+                    errorsBadge.textContent = `⚠ ${errorCount} error${errorCount > 1 ? 's' : ''}`;
+                    errorsBadge.style.display = 'inline';
+                } else {
+                    errorsBadge.style.display = 'none';
+                }
+            }
+
             prevState.video_error_count = ch.video_error_count;
         }
         
