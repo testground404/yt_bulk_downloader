@@ -1773,6 +1773,8 @@
         // Track previous in-progress index for this wrapper
         wrapper._prevInProgressIndex = -1;
         wrapper._isAutoScrolling = false;
+        wrapper._userScrolledRecently = false;
+        wrapper._userScrollTimeout = null;
 
         let scrollTimeout;
         wrapper.addEventListener('scroll', () => {
@@ -1781,6 +1783,13 @@
             if (wrapper._isAutoScrolling) {
                 return;
             }
+
+            // User manually scrolled - disable auto-scroll for 10 seconds
+            wrapper._userScrolledRecently = true;
+            clearTimeout(wrapper._userScrollTimeout);
+            wrapper._userScrollTimeout = setTimeout(() => {
+                wrapper._userScrolledRecently = false;
+            }, 10000); // 10 seconds
 
             clearTimeout(scrollTimeout);
             scrollTimeout = setTimeout(() => {
@@ -1853,8 +1862,12 @@
             const inProgressChanged = wrapper._prevInProgressIndex !== undefined &&
                                      wrapper._prevInProgressIndex !== inProgressIndex;
 
-            // Only scroll if in-progress changed AND not already auto-scrolling AND is outside viewport
-            if (inProgressChanged && !wrapper._isAutoScrolling) {
+            // Only scroll if:
+            // 1. In-progress changed (new video)
+            // 2. Not already auto-scrolling (prevent recursion)
+            // 3. User hasn't manually scrolled recently (respect user control)
+            // 4. Video is outside viewport
+            if (inProgressChanged && !wrapper._isAutoScrolling && !wrapper._userScrolledRecently) {
                 const isAboveViewport = inProgressY < viewportTop;
                 const isBelowViewport = inProgressY + VIRTUAL_ROW_HEIGHT > viewportBottom;
 
