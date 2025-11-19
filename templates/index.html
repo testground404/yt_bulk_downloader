@@ -1708,6 +1708,41 @@
         // Store updated state
         previousRenderState.set(ch.url, prevState);
     }
+
+    // Auto-scroll to processing channel when it changes
+    if (processingChannelChanged && processingChannel) {
+        scrollToProcessingChannel(processingChannel.url);
+    }
+
+    function scrollToProcessingChannel(channelUrl) {
+        // Don't scroll if user manually scrolled recently
+        if (elements.channelsContainer._userScrolledRecently) {
+            return;
+        }
+
+        const channelEl = elements.channelsContainer.querySelector(`[data-url="${channelUrl}"]`);
+        if (!channelEl) return;
+
+        const searchFilterContainer = document.querySelector('.search-filter-container');
+        if (!searchFilterContainer) return;
+
+        // Calculate positions
+        const containerTop = elements.channelsContainer.getBoundingClientRect().top;
+        const searchFilterBottom = searchFilterContainer.getBoundingClientRect().bottom;
+        const channelHeaderTop = channelEl.querySelector('.channel-header').getBoundingClientRect().top;
+
+        // Calculate how much to scroll to position channel header just below search-filter
+        const targetPosition = searchFilterBottom - containerTop;
+        const currentChannelPosition = channelHeaderTop - containerTop;
+        const scrollAdjustment = currentChannelPosition - targetPosition;
+
+        if (Math.abs(scrollAdjustment) > 5) { // Only scroll if more than 5px off
+            elements.channelsContainer.scrollBy({
+                top: scrollAdjustment,
+                behavior: 'smooth'
+            });
+        }
+    }
     
     function hashVideos(videos) {
         if (!videos || videos.length === 0) return '';
@@ -1898,27 +1933,21 @@
             // 1. In-progress changed (new video)
             // 2. Not already auto-scrolling (prevent recursion)
             // 3. User hasn't manually scrolled recently (respect user control)
-            // 4. Video is outside viewport
+            // 4. Video's bottom edge is below viewport bottom
             if (inProgressChanged && !wrapper._isAutoScrolling && !wrapper._userScrolledRecently) {
-                const isAboveViewport = inProgressY < viewportTop;
-                const isBelowViewport = inProgressY + VIRTUAL_ROW_HEIGHT > viewportBottom;
+                const videoBottomEdge = inProgressY + VIRTUAL_ROW_HEIGHT;
+                const isBelowViewport = videoBottomEdge > viewportBottom;
 
-                if (isAboveViewport || isBelowViewport) {
-                    // Minimal scroll: just enough to bring video into view
-                    let newScrollTop;
-                    if (isBelowViewport) {
-                        // Scroll down to show video at bottom of viewport
-                        newScrollTop = inProgressY - viewportHeight + VIRTUAL_ROW_HEIGHT;
-                    } else {
-                        // Scroll up to show video at top of viewport
-                        newScrollTop = inProgressY;
-                    }
+                if (isBelowViewport) {
+                    // Minimal scroll: just enough to bring bottom edge of video into view
+                    // Scroll by the amount needed to bring video bottom edge above table bottom edge
+                    const scrollAmount = videoBottomEdge - viewportBottom;
 
                     // Set flag to prevent recursive auto-scroll
                     wrapper._isAutoScrolling = true;
 
-                    wrapper.scrollTo({
-                        top: Math.max(0, newScrollTop),
+                    wrapper.scrollBy({
+                        top: scrollAmount,
                         behavior: 'smooth'
                     });
 
@@ -1927,7 +1956,7 @@
                         wrapper._isAutoScrolling = false;
                     }, 500);
                 }
-                // If already visible, don't scroll
+                // If video's bottom is already visible, don't scroll
             }
 
             // Update previous in-progress index
@@ -2080,6 +2109,23 @@
         poll();
         elements.startBtn.addEventListener('click', () => fetch('/start', {method:'POST'}).catch(console.error));
         elements.stopBtn.addEventListener('click', () => fetch('/stop', {method:'POST'}).catch(console.error));
+
+        // Setup channelsContainer scroll detection for auto-scroll control
+        elements.channelsContainer._userScrolledRecently = false;
+        elements.channelsContainer._userScrollTimeout = null;
+
+        let channelScrollTimeout;
+        elements.channelsContainer.addEventListener('scroll', () => {
+            // User manually scrolled - disable auto-scroll for 10 seconds
+            elements.channelsContainer._userScrolledRecently = true;
+            updateAutoScrollStatus(false);
+
+            clearTimeout(elements.channelsContainer._userScrollTimeout);
+            elements.channelsContainer._userScrollTimeout = setTimeout(() => {
+                elements.channelsContainer._userScrolledRecently = false;
+                updateAutoScrollStatus(true);
+            }, 10000); // 10 seconds
+        });
     });
 </script>
 </body>
