@@ -927,13 +927,6 @@
     let previousValues = {};
     let downloadRateTracker = { startTime: null, startCount: 0 };
 
-    // Channel status tracking for console logging
-    let channelStatusTracker = new Map(); // Tracks: url -> {status, lastListed, videoCount, listingStartTime}
-    let initialLoadLogged = false; // Track if we've logged the initial cache summary
-
-    // Initialization log
-    console.log('📺 Caption Downloader initialized');
-
     // Toast Notifications
     function showToast(title, message, type = 'info') {
       const toast = document.createElement('div');
@@ -1231,11 +1224,6 @@
     }
     
     function render(data) {
-        // Debug: Log render calls
-        if (data.channels && data.channels.length > 0 && channelStatusTracker.size === 0) {
-            console.log(`🔄 First render: received ${data.channels.length} channels`);
-        }
-
         // Update running state and adjust polling
         const wasRunning = isRunning;
         isRunning = data.running;
@@ -1327,98 +1315,6 @@
         }
 
         allChannels = data.channels || [];
-
-        // Track channel status changes and log to console
-        if (allChannels.length > 0) {
-            // One-time initial load logging - show all cached channels at startup
-            if (!initialLoadLogged && channelStatusTracker.size === 0 && allChannels.length > 0) {
-                const now = new Date();
-                const cachedChannels = allChannels.filter(ch =>
-                    ch.status === 'Listed' && ch.last_listed && ch.videos?.length > 0
-                );
-
-                if (cachedChannels.length > 0) {
-                    console.log(`╔════════════════════════════════════════════════════════════════════════════`);
-                    console.log(`║ 📦 CACHE DEBUG: Initial Load`);
-                    console.log(`╠════════════════════════════════════════════════════════════════════════════`);
-                    console.log(`║ Current Time: ${now.toISOString()} (${now.toLocaleString()})`);
-                    console.log(`║ Total Channels: ${allChannels.length}`);
-                    console.log(`║ Cached Channels: ${cachedChannels.length}`);
-                    console.log(`║ Need Re-listing: ${allChannels.length - cachedChannels.length}`);
-                    console.log(`╚════════════════════════════════════════════════════════════════════════════`);
-                    console.log('');
-
-                    cachedChannels.forEach((ch, idx) => {
-                        const listedDate = new Date(ch.last_listed);
-                        const daysSinceListed = (now - listedDate) / (1000 * 60 * 60 * 24);
-                        const hoursSinceListed = (now - listedDate) / (1000 * 60 * 60);
-                        const minutesSinceListed = (now - listedDate) / (1000 * 60);
-                        const cacheValid = daysSinceListed < 7;
-
-                        console.log(`[${idx + 1}/${cachedChannels.length}] ${ch.name}`);
-                        console.log(`    ├─ Status: ${ch.status}`);
-                        console.log(`    ├─ Videos: ${ch.videos.length}`);
-                        console.log(`    ├─ Previous Listing: ${listedDate.toISOString()} (${listedDate.toLocaleString()})`);
-                        console.log(`    ├─ Current Time: ${now.toISOString()} (${now.toLocaleString()})`);
-                        console.log(`    ├─ Age: ${daysSinceListed.toFixed(3)} days / ${hoursSinceListed.toFixed(2)} hours / ${minutesSinceListed.toFixed(1)} minutes`);
-                        console.log(`    ├─ Cache Valid: ${cacheValid ? '✓ YES (< 7 days)' : '✗ NO (> 7 days)'}`);
-                        console.log(`    ├─ Cache Expires: ${new Date(listedDate.getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleString()}`);
-                        console.log(`    └─ Raw Timestamp: ${ch.last_listed}`);
-                    });
-
-                    console.log('');
-                    console.log(`📊 RESULT: ${cachedChannels.length} channels loaded from cache (skipping re-list)`);
-                    console.log('═'.repeat(80));
-                }
-
-                initialLoadLogged = true;
-            }
-
-            // Track ongoing status changes
-            allChannels.forEach(ch => {
-                const prevState = channelStatusTracker.get(ch.url) || {};
-                const currentState = {
-                    status: ch.status,
-                    lastListed: ch.last_listed,
-                    videoCount: ch.videos?.length || 0
-                };
-
-                // Channel started listing (not from cache)
-                if (prevState.status !== 'Listing' && currentState.status === 'Listing') {
-                    currentState.listingStartTime = Date.now();
-                    const now = new Date();
-                    console.log(`\n🔄 LISTING START: ${ch.name}`);
-                    console.log(`    ├─ Previous Status: ${prevState.status || 'New'}`);
-                    console.log(`    ├─ Previous Timestamp: ${prevState.lastListed || 'None'}`);
-                    console.log(`    ├─ Start Time: ${now.toISOString()} (${now.toLocaleString()})`);
-                    console.log(`    └─ Reason: ${prevState.lastListed ? 'Cache expired or manually triggered' : 'First time listing'}`);
-                }
-
-                // Channel finished listing
-                if (prevState.status === 'Listing' && currentState.status === 'Listed') {
-                    const listingTime = prevState.listingStartTime ? ((Date.now() - prevState.listingStartTime) / 1000).toFixed(2) : 'Unknown';
-                    const newTimestamp = ch.last_listed;
-                    const oldTimestamp = prevState.lastListed || 'None';
-                    const now = new Date();
-                    const expiryDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-                    console.log(`\n✅ LISTING COMPLETE: ${ch.name}`);
-                    console.log(`    ├─ Videos Found: ${currentState.videoCount}`);
-                    console.log(`    ├─ Time Taken: ${listingTime}s`);
-                    console.log(`    ├─ Previous Timestamp: ${oldTimestamp}`);
-                    console.log(`    ├─ New Timestamp: ${newTimestamp}`);
-                    console.log(`    ├─ Completion Time: ${now.toISOString()} (${now.toLocaleString()})`);
-                    console.log(`    ├─ Cache Valid Until: ${expiryDate.toISOString()} (${expiryDate.toLocaleString()})`);
-                    console.log(`    └─ Will be cached for: 7 days (${7 * 24} hours)`);
-                }
-
-                // Update tracker
-                channelStatusTracker.set(ch.url, {
-                    ...currentState,
-                    listingStartTime: prevState.listingStartTime || currentState.listingStartTime
-                });
-            });
-        }
 
         renderChannels();
     }
@@ -1754,14 +1650,23 @@
             }
             prevState.eta_seconds = ch.eta_seconds;
         }
-        
-        // Update videos table only if videos actually changed
-        const videosHash = hashVideos(ch.videos);
-        if (prevState.videos_hash !== videosHash) {
-            updateVideosTable(channelEl, ch.videos);
-            prevState.videos_hash = videosHash;
+
+        // Lazy loading: Only update videos table when expanded
+        if (isExpanded) {
+            const videosHash = hashVideos(ch.videos);
+            if (prevState.videos_hash !== videosHash) {
+                updateVideosTable(channelEl, ch.videos);
+                prevState.videos_hash = videosHash;
+            }
+        } else {
+            // Clear videos table when collapsed to save memory
+            const container = channelEl.querySelector('.channel-videos-container');
+            if (container && container.innerHTML) {
+                container.innerHTML = '';
+                prevState.videos_hash = '';
+            }
         }
-        
+
         // Store updated state
         previousRenderState.set(ch.url, prevState);
     }
