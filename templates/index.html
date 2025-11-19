@@ -1677,6 +1677,10 @@
         return videos.map(v => `${v.id}:${v.status}:${v.attempts}`).join('|');
     }
     
+    // Virtual scrolling configuration
+    const VIRTUAL_ROW_HEIGHT = 36; // pixels per row
+    const VIRTUAL_BUFFER = 10; // extra rows to render above/below viewport
+
     function updateVideosTable(channelEl, videos) {
         const container = channelEl.querySelector('.channel-videos-container');
         if (!container) return;
@@ -1688,113 +1692,119 @@
             return;
         }
 
-        let table = container.querySelector('table');
-        let tbody = null;
+        let wrapper = container.querySelector('.channel-table-wrapper');
+        let table, thead, tbody;
 
         // Create table structure if it doesn't exist
-        if (!table) {
-            const wrapper = document.createElement('div');
+        if (!wrapper) {
+            wrapper = document.createElement('div');
             wrapper.className = 'channel-table-wrapper';
-            table = document.createElement('table');
+            wrapper.style.maxHeight = '400px';
+            wrapper.style.overflow = 'auto';
+            wrapper.style.position = 'relative';
 
-            const thead = document.createElement('thead');
+            table = document.createElement('table');
+            thead = document.createElement('thead');
             thead.innerHTML = '<tr><th>#</th><th>Title</th><th>Status</th><th>Attempts</th></tr>';
+            thead.style.position = 'sticky';
+            thead.style.top = '0';
+            thead.style.zIndex = '10';
 
             tbody = document.createElement('tbody');
+            tbody.style.position = 'relative';
 
             table.appendChild(thead);
             table.appendChild(tbody);
             wrapper.appendChild(table);
             container.innerHTML = '';
             container.appendChild(wrapper);
+
+            // Setup virtual scrolling
+            setupVirtualScroll(wrapper, tbody, videos, channelEl);
         } else {
+            table = wrapper.querySelector('table');
             tbody = table.querySelector('tbody');
-            if (!tbody) {
-                tbody = document.createElement('tbody');
-                table.appendChild(tbody);
-            }
+            thead = table.querySelector('thead');
         }
-        
-        // Get existing rows
-        const existingRows = Array.from(tbody.children);
-        let hasInProgressVideo = false;
-        let inProgressVideoChanged = false;
-        
-        // Update or create rows
-        videos.forEach((v, i) => {
-            let row = existingRows[i];
-            const wasInProgress = row && row.classList.contains('in-progress-row');
-            const isInProgress = v.status === 'in-progress';
-            
-            if (isInProgress) {
-                hasInProgressVideo = true;
-                if (!wasInProgress) {
-                    inProgressVideoChanged = true;
-                }
-            }
-            
-            if (!row) {
-                row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="tiny"></td>
-                    <td class="video-title"></td>
-                    <td class="video-status-cell"></td>
-                    <td class="tiny video-attempts"></td>
-                `;
-                tbody.appendChild(row);
-            }
-            
-            // Update row class
-            const newRowClass = isInProgress ? 'in-progress-row' : '';
-            if (row.className !== newRowClass) {
-                row.className = newRowClass;
-            }
-            
-            // Update cells only if needed
-            const cells = row.children;
-            
-            const indexText = String(i + 1);
-            if (cells[0].textContent !== indexText) {
-                cells[0].textContent = indexText;
-            }
-            
-            const titleCell = cells[1];
-            const newTitle = (v.title || '').slice(0, 70);
-            if (titleCell.textContent !== newTitle || titleCell.getAttribute('title') !== v.title) {
-                titleCell.textContent = newTitle;
-                titleCell.setAttribute('title', v.title || '');
-            }
-            
-            const statusCell = cells[2];
-            const statusPill = statusCell.querySelector('.status-pill') || document.createElement('span');
-            const statusClass = `status-pill status-${(v.status||'').replace(/\s+/g,'-').toLowerCase()}`;
-            const spinner = v.status === 'in-progress' ? '<span class="spinner"></span>' : '';
-            const statusContent = `${spinner} ${v.status}`;
-            
-            if (statusPill.className !== statusClass || statusPill.innerHTML !== statusContent) {
-                statusPill.className = statusClass;
-                statusPill.innerHTML = statusContent;
-                if (!statusCell.contains(statusPill)) {
-                    statusCell.innerHTML = '';
-                    statusCell.appendChild(statusPill);
-                }
-            }
-            
-            const attemptsText = String(v.attempts || 0);
-            if (cells[3].textContent !== attemptsText) {
-                cells[3].textContent = attemptsText;
-            }
+
+        // Update virtual scroll
+        renderVisibleRows(wrapper, tbody, videos, channelEl);
+    }
+
+    function setupVirtualScroll(wrapper, tbody, videos, channelEl) {
+        let scrollTimeout;
+        wrapper.addEventListener('scroll', () => {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                renderVisibleRows(wrapper, tbody, videos, channelEl);
+            }, 16); // ~60fps throttle
         });
-        
-        // Remove extra rows
-        while (tbody.children.length > videos.length) {
-            tbody.removeChild(tbody.lastChild);
+    }
+
+    function renderVisibleRows(wrapper, tbody, videos, channelEl) {
+        if (!videos || videos.length === 0) return;
+
+        const scrollTop = wrapper.scrollTop;
+        const viewportHeight = wrapper.clientHeight;
+
+        // Calculate visible range
+        const startIndex = Math.max(0, Math.floor(scrollTop / VIRTUAL_ROW_HEIGHT) - VIRTUAL_BUFFER);
+        const endIndex = Math.min(videos.length, Math.ceil((scrollTop + viewportHeight) / VIRTUAL_ROW_HEIGHT) + VIRTUAL_BUFFER);
+
+        // Total height for scrollbar
+        const totalHeight = videos.length * VIRTUAL_ROW_HEIGHT;
+
+        // Clear tbody and set height
+        tbody.innerHTML = '';
+        tbody.style.height = `${totalHeight}px`;
+
+        // Create spacer for offset
+        const offsetY = startIndex * VIRTUAL_ROW_HEIGHT;
+
+        // Find in-progress video
+        let inProgressIndex = videos.findIndex(v => v.status === 'in-progress');
+
+        // Render only visible rows
+        for (let i = startIndex; i < endIndex; i++) {
+            const v = videos[i];
+            const row = document.createElement('tr');
+            row.style.position = 'absolute';
+            row.style.top = `${i * VIRTUAL_ROW_HEIGHT}px`;
+            row.style.height = `${VIRTUAL_ROW_HEIGHT}px`;
+            row.style.width = '100%';
+
+            const isInProgress = v.status === 'in-progress';
+            if (isInProgress) {
+                row.className = 'in-progress-row';
+            }
+
+            row.innerHTML = `
+                <td class="tiny">${i + 1}</td>
+                <td class="video-title" title="${v.title || ''}">${(v.title || '').slice(0, 70)}</td>
+                <td class="video-status-cell">
+                    <span class="status-pill status-${(v.status||'').replace(/\s+/g,'-').toLowerCase()}">
+                        ${v.status === 'in-progress' ? '<span class="spinner"></span>' : ''} ${v.status}
+                    </span>
+                </td>
+                <td class="tiny video-attempts">${v.attempts || 0}</td>
+            `;
+
+            tbody.appendChild(row);
         }
-        
-        // Auto-scroll to in-progress video if it changed
-        if (hasInProgressVideo && inProgressVideoChanged) {
-            const channelUrl = channelEl.dataset.url;
-            scrollToProcessingVideo(channelUrl);
+
+        // Auto-scroll to in-progress video (within virtual scroll viewport)
+        if (inProgressIndex !== -1) {
+            const inProgressY = inProgressIndex * VIRTUAL_ROW_HEIGHT;
+            const viewportTop = scrollTop;
+            const viewportBottom = scrollTop + viewportHeight;
+
+            // Scroll if in-progress video is outside viewport
+            if (inProgressY < viewportTop || inProgressY > viewportBottom - VIRTUAL_ROW_HEIGHT) {
+                wrapper.scrollTo({
+                    top: Math.max(0, inProgressY - viewportHeight / 2),
+                    behavior: 'smooth'
+                });
+            }
         }
     }
     
