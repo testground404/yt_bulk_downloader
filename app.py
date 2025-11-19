@@ -668,25 +668,47 @@ def run_downloader_task():
                 logging.info(f"Completed channel: {channel['name']}")
                 break
 
-            # Find the next video to prepare for atomic transition
-            # BUT only if no other video is already in-progress (prevents duplicates)
-            next_video = None
-            with status_lock:
-                # First check: is there ANY in-progress video in the channel?
-                has_in_progress = any(v.get("status") == "in-progress" for v in channel.get("videos", []))
+            # Retry loop: Keep retrying the current video until it succeeds or exhausts all attempts
+            # This ensures no new videos are started until all retry attempts are completed
+            while app_status["running"] and target_video.get("attempts", 0) < config.MAX_RETRIES:
+                # Download video (no next_video during retries to prevent starting new tasks)
+                download_video(channel, target_video, target_idx, next_video=None)
 
-                # Only find next video if current target will be the only in-progress video
-                if not has_in_progress or target_video.get("status") == "in-progress":
-                    for idx, v in enumerate(channel.get("videos", [])):
-                        if idx > target_idx and v.get("status") in ["pending", "error"]:
-                            if v.get("attempts", 0) < config.MAX_RETRIES:
-                                next_video = v
-                                break
+                # Check if download succeeded or if we should retry
+                with status_lock:
+                    if target_video.get("status") == "downloaded":
+                        # Success - find next video for atomic transition
+                        next_video = None
+                        for idx, v in enumerate(channel.get("videos", [])):
+                            if idx > target_idx and v.get("status") in ["pending", "error"]:
+                                if v.get("attempts", 0) < config.MAX_RETRIES:
+                                    next_video = v
+                                    # Mark next video as in-progress
+                                    next_video["status"] = "in-progress"
+                                    next_video["attempts"] = next_video.get("attempts", 0) + 1
+                                    next_video["last_attempt"] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+                                    break
+                        logging.info(f"Successfully downloaded: {target_video['title']}")
+                        break  # Exit retry loop on success
+                    elif target_video.get("status") == "error":
+                        # Check if we've exhausted all retries
+                        if target_video.get("attempts", 0) >= config.MAX_RETRIES:
+                            logging.error(f"All retry attempts exhausted for: {target_video['title']}")
+                            break  # Exit retry loop - all attempts exhausted
+                        else:
+                            # Still have retries left
+                            remaining = config.MAX_RETRIES - target_video.get("attempts", 0)
+                            logging.info(f"Retrying: {target_video['title']} ({remaining} attempts remaining)")
+                            # Reset status to pending for retry
+                            target_video["status"] = "pending"
+                            # Wait before retry
+                            time.sleep(config.RETRY_DELAY)
+                    else:
+                        # Unexpected status
+                        logging.warning(f"Unexpected video status during retry: {target_video.get('status')}")
+                        break
 
-            # Download video (will mark next as in-progress atomically when done)
-            download_video(channel, target_video, target_idx, next_video)
-
-            # Rate limiting
+            # Rate limiting between videos (not between retries)
             time.sleep(config.RATE_LIMIT_DELAY)
         
         calculate_metrics()
@@ -783,42 +805,10 @@ def download_video(channel, video, video_idx, next_video=None):
                 video["status"] = "error"
                 logging.error(f"Failed to download: {video['title']} (attempt {video['attempts']}/{config.MAX_RETRIES})")
 
-            # Atomically mark next video as in-progress to prevent visual gap
-            # Safety check: only if it's not already in-progress
-            if next_video and next_video.get("status") != "in-progress":
-                next_video["status"] = "in-progress"
-                next_video["attempts"] = next_video.get("attempts", 0) + 1
-                next_video["last_attempt"] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-
-                # Find next video index for status display
-                next_video_idx = channel.get("videos", []).index(next_video) if next_video in channel.get("videos", []) else -1
-                if next_video_idx >= 0:
-                    next_video_num = next_video_idx + 1
-                    total_videos = len(channel.get("videos", []))
-                    app_status["overall_status"] = f"Downloading [{next_video_num}/{total_videos}]: {next_video.get('title', '')[:40]}..."
-                else:
-                    app_status["overall_status"] = f"Downloading: {next_video.get('title', '')[:40]}..."
-
     except Exception as e:
         logging.error(f"Error processing video {video['title']}: {e}")
         with status_lock:
             video["status"] = "error"
-
-            # Atomically mark next video as in-progress even on error
-            # Safety check: only if it's not already in-progress
-            if next_video and next_video.get("status") != "in-progress":
-                next_video["status"] = "in-progress"
-                next_video["attempts"] = next_video.get("attempts", 0) + 1
-                next_video["last_attempt"] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-
-                # Find next video index for status display
-                next_video_idx = channel.get("videos", []).index(next_video) if next_video in channel.get("videos", []) else -1
-                if next_video_idx >= 0:
-                    next_video_num = next_video_idx + 1
-                    total_videos = len(channel.get("videos", []))
-                    app_status["overall_status"] = f"Downloading [{next_video_num}/{total_videos}]: {next_video.get('title', '')[:40]}..."
-                else:
-                    app_status["overall_status"] = f"Downloading: {next_video.get('title', '')[:40]}..."
     finally:
         with process_lock:
             if video["url"] in channel_processes:
