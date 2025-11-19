@@ -1726,6 +1726,19 @@
             wrapper.style.position = 'relative';
 
             table = document.createElement('table');
+            table.style.tableLayout = 'fixed';
+            table.style.width = '100%';
+
+            // Create colgroup for consistent column widths
+            const colgroup = document.createElement('colgroup');
+            colgroup.innerHTML = `
+                <col style="width: 50px">
+                <col style="width: auto">
+                <col style="width: 140px">
+                <col style="width: 80px">
+            `;
+            table.appendChild(colgroup);
+
             thead = document.createElement('thead');
             thead.innerHTML = '<tr><th>#</th><th>Title</th><th>Status</th><th>Attempts</th></tr>';
             thead.style.position = 'sticky';
@@ -1807,6 +1820,8 @@
             row.style.top = `${i * VIRTUAL_ROW_HEIGHT}px`;
             row.style.height = `${VIRTUAL_ROW_HEIGHT}px`;
             row.style.width = '100%';
+            row.style.display = 'table';
+            row.style.tableLayout = 'fixed';
 
             const isInProgress = v.status === 'in-progress';
             if (isInProgress) {
@@ -1814,14 +1829,14 @@
             }
 
             row.innerHTML = `
-                <td class="tiny">${i + 1}</td>
-                <td class="video-title" title="${v.title || ''}">${(v.title || '').slice(0, 70)}</td>
-                <td class="video-status-cell">
+                <td class="tiny" style="width: 50px">${i + 1}</td>
+                <td class="video-title" title="${v.title || ''}" style="width: auto">${(v.title || '').slice(0, 70)}</td>
+                <td class="video-status-cell" style="width: 140px">
                     <span class="status-pill status-${(v.status||'').replace(/\s+/g,'-').toLowerCase()}">
                         ${v.status === 'in-progress' ? '<span class="spinner"></span>' : ''} ${v.status}
                     </span>
                 </td>
-                <td class="tiny video-attempts">${v.attempts || 0}</td>
+                <td class="tiny video-attempts" style="width: 80px">${v.attempts || 0}</td>
             `;
 
             tbody.appendChild(row);
