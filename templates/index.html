@@ -1853,8 +1853,8 @@
             const inProgressChanged = wrapper._prevInProgressIndex !== undefined &&
                                      wrapper._prevInProgressIndex !== inProgressIndex;
 
-            // Only scroll if in-progress video changed AND is outside viewport
-            if (inProgressChanged) {
+            // Only scroll if in-progress changed AND not already auto-scrolling AND is outside viewport
+            if (inProgressChanged && !wrapper._isAutoScrolling) {
                 const isAboveViewport = inProgressY < viewportTop;
                 const isBelowViewport = inProgressY + VIRTUAL_ROW_HEIGHT > viewportBottom;
 
@@ -1869,7 +1869,7 @@
                         newScrollTop = inProgressY;
                     }
 
-                    // Set flag to prevent re-render during auto-scroll
+                    // Set flag to prevent recursive auto-scroll
                     wrapper._isAutoScrolling = true;
 
                     wrapper.scrollTo({
@@ -1877,13 +1877,9 @@
                         behavior: 'smooth'
                     });
 
-                    // Clear flag after smooth scroll completes and force re-render
+                    // Clear flag after smooth scroll completes
                     setTimeout(() => {
                         wrapper._isAutoScrolling = false;
-                        // Force immediate re-render with latest video statuses
-                        if (wrapper._currentVideos) {
-                            renderVisibleRows(wrapper, tbody, wrapper._currentVideos, channelEl);
-                        }
                     }, 500);
                 }
                 // If already visible, don't scroll
