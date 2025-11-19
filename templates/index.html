@@ -248,6 +248,21 @@
     .card{ background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border-subtle); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
     .card-header { padding: 20px 24px; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
     .card-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin: 0; }
+    .auto-scroll-badge {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 8px;
+      border-radius: 12px;
+      margin-left: 8px;
+      text-transform: none;
+      letter-spacing: normal;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+    }
+    .auto-scroll-badge.on { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+    .auto-scroll-badge.off { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
     .card-body { padding: 24px; flex-grow: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
     
     /* Search and Filter */
@@ -713,7 +728,7 @@
     <div class="main-grid">
       <main class="card">
         <div class="card-header">
-          <h2 class="card-title">Channels</h2>
+          <h2 class="card-title">Channels <span id="autoScrollStatus" class="auto-scroll-badge on" title="Auto-scroll status">🔄 Auto-scroll ON</span></h2>
           <span class="tiny" id="channelCount">0 channels</span>
         </div>
         <div class="search-filter-container">
@@ -888,6 +903,7 @@
         channelsContainer: document.getElementById('channelsContainer'),
         searchInput: document.getElementById('searchInput'),
         channelCount: document.getElementById('channelCount'),
+        autoScrollStatus: document.getElementById('autoScrollStatus'),
         statusModal: document.getElementById('statusModal'),
         closeStatusModal: document.getElementById('closeStatusModal'),
         chartModal: document.getElementById('chartModal'),
@@ -1769,6 +1785,19 @@
         renderVisibleRows(wrapper, tbody, videos, channelEl);
     }
 
+    function updateAutoScrollStatus(isEnabled) {
+        const badge = elements.autoScrollStatus;
+        if (!badge) return;
+
+        if (isEnabled) {
+            badge.textContent = '🔄 Auto-scroll ON';
+            badge.className = 'auto-scroll-badge on';
+        } else {
+            badge.textContent = '⏸ Auto-scroll OFF (10s)';
+            badge.className = 'auto-scroll-badge off';
+        }
+    }
+
     function setupVirtualScroll(wrapper, tbody, videos, channelEl) {
         // Track previous in-progress index for this wrapper
         wrapper._prevInProgressIndex = -1;
@@ -1786,9 +1815,12 @@
 
             // User manually scrolled - disable auto-scroll for 10 seconds
             wrapper._userScrolledRecently = true;
+            updateAutoScrollStatus(false); // Update global badge
+
             clearTimeout(wrapper._userScrollTimeout);
             wrapper._userScrollTimeout = setTimeout(() => {
                 wrapper._userScrolledRecently = false;
+                updateAutoScrollStatus(true); // Re-enable badge
             }, 10000); // 10 seconds
 
             clearTimeout(scrollTimeout);
